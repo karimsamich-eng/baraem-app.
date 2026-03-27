@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : {"role": "none"};
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (getUserData().role == 'admin' || 
+         (request.auth.token.email == "kareemsame77esoyam@gmail.com" && request.auth.token.email_verified == true));
+    }
+    
+    function isCoordinator() {
+      return isAuthenticated() && (getUserData().role == 'coordinator' || isAdmin());
+    }
+
+    function isAttendance() {
+      return isAuthenticated() && (getUserData().role in ['attendance', 'servant'] || isAdmin());
+    }
+
+    function isTayo() {
+      return isAuthenticated() && (getUserData().role in ['tayo', 'practical', 'servant'] || isAdmin());
+    }
+
+    function isPractical() {
+      return isAuthenticated() && (getUserData().role in ['practical', 'tayo', 'servant'] || isAdmin());
+    }
+
+    function isStaff() {
+      return isAuthenticated() && (getUserData().role in ['admin', 'coordinator', 'attendance', 'tayo', 'practical', 'servant'] || isAdmin());
+    }
+
+    function isServant() {
+      return isAuthenticated() && (
+        getUserData().role in ['admin', 'coordinator', 'attendance', 'tayo', 'practical', 'servant', 'guest'] ||
+        request.auth.token.firebase.sign_in_provider == 'anonymous'
+      );
+    }
+
+    // Validation Helpers
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /test/{allPaths=**} {
+      allow read: if true;
+    }
+
+    match /dashboard_stats/{statId} {
+      allow read: if isAuthenticated();
+      allow write: if isCoordinator();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /students/{studentId} {
+      allow get, list: if isServant();
+      allow write: if isStaff();
+    }
+
+    match /attendance/{recordId} {
+      allow read: if isServant();
+      allow write: if isAttendance() || isCoordinator();
+    }
+
+    match /grades/{recordId} {
+      allow read: if isServant();
+      allow write: if isTayo() || isCoordinator();
+    }
+
+    match /practical_service/{recordId} {
+      allow read: if isServant();
+      allow write: if isPractical() || isCoordinator();
+    }
+
+    match /acceptance_evaluations/{evalId} {
+      allow read: if isServant();
+      allow write: if isCoordinator();
+    }
+
+    match /resources/{resourceId} {
+      allow read: if isServant();
+      allow write: if isCoordinator();
+    }
+
+    match /curriculum/{squadId} {
+      allow read: if isServant();
+      allow write: if isCoordinator();
+    }
+
+    match /slider_images/{imageId} {
+      allow read: if true; // Publicly readable for the home page slider
+      allow write: if isCoordinator();
+    }
+
+    match /reports/{reportId} {
+      allow read: if isServant();
+      allow write: if isServant(); // Many roles generate reports
+    }
+
+    match /staff/{memberId} {
+      allow read: if true; // Publicly readable for the staff list
+      allow write: if isCoordinator();
+    }
+
+    match /events/{eventId} {
+      allow read: if true; // Publicly readable for the events calendar
+      allow write: if isCoordinator();
+    }
+
+    match /exam_links/{examId} {
+      allow read: if isAuthenticated();
+      allow write: if isCoordinator();
+    }
+
+    // Default deny for everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

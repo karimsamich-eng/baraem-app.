@@ -1,0 +1,225 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "A student in the Baraem Orthodox service.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the student." },
+        "name": { "type": "string", "description": "Full name of the student." },
+        "gradeLevel": { "type": "string", "description": "Grade level (e.g., 1st, 2nd)." },
+        "phone": { "type": "string", "description": "Contact phone number." },
+        "parentName": { "type": "string", "description": "Name of the parent or guardian." },
+        "parentPhone": { "type": "string", "description": "Phone number of the parent or guardian." },
+        "notes": { "type": "string", "description": "Additional notes about the student." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the student record was created." },
+        "createdBy": { "type": "string", "description": "UID of the user who created the record." },
+        "attendancePoints": { "type": "number", "description": "Total attendance points." },
+        "behaviorPoints": { "type": "number", "description": "Total behavior points." },
+        "interactionPoints": { "type": "number", "description": "Total interaction points." },
+        "practicalPoints": { "type": "number", "description": "Total practical service points." }
+      },
+      "required": ["name", "gradeLevel", "createdAt", "createdBy", "attendancePoints", "behaviorPoints", "interactionPoints", "practicalPoints"]
+    },
+    "AttendanceRecord": {
+      "title": "Attendance Record",
+      "description": "A record of student attendance for a specific date.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the attendance record." },
+        "studentId": { "type": "string", "description": "ID of the student." },
+        "date": { "type": "string", "format": "date", "description": "Date of attendance (YYYY-MM-DD)." },
+        "status": { "type": "string", "enum": ["present", "absent", "late"], "description": "Attendance status." },
+        "notes": { "type": "string", "description": "Optional notes for the attendance." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "UID of the user who last updated the record." }
+      },
+      "required": ["studentId", "date", "status", "updatedAt", "updatedBy"]
+    },
+    "GradeRecord": {
+      "title": "Grade Record",
+      "description": "A record of a student's grade or score in a subject or activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the grade record." },
+        "studentId": { "type": "string", "description": "ID of the student." },
+        "subject": { "type": "string", "description": "Subject or activity name." },
+        "score": { "type": "number", "description": "Score or grade value." },
+        "date": { "type": "string", "format": "date", "description": "Date of the grade." },
+        "notes": { "type": "string", "description": "Optional notes for the grade." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "UID of the user who last updated the record." }
+      },
+      "required": ["studentId", "subject", "score", "date", "updatedAt", "updatedBy"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the management platform (servant/admin).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "Display name of the user." },
+        "email": { "type": "string", "format": "email", "description": "Email address." },
+        "role": { "type": "string", "enum": ["admin", "coordinator", "attendance", "tayo", "practical", "servant", "guest"], "description": "User role." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user account was created." }
+      },
+      "required": ["uid", "displayName", "email", "role"]
+    },
+    "AcceptanceEvaluation": {
+      "title": "Acceptance Evaluation",
+      "description": "An evaluation for a student's acceptance into the service.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the evaluation." },
+        "studentId": { "type": "string", "description": "ID of the student." },
+        "score": { "type": "number", "description": "Evaluation score." },
+        "notes": { "type": "string", "description": "Evaluation notes." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["studentId", "score", "updatedAt", "updatedBy"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "A learning resource (Menahej, Alhan, Spiritual) for a specific squad.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the resource." },
+        "title": { "type": "string", "description": "Title of the resource." },
+        "category": { "type": "string", "enum": ["Menahej", "Alhan", "Spiritual"], "description": "Category of the resource." },
+        "squad": { "type": "string", "enum": ["الفرقة الأولى", "الفرقة الثانية"], "description": "Target squad for the resource." },
+        "link": { "type": "string", "description": "Link to the file or resource content." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["title", "category", "squad", "link", "updatedAt", "updatedBy"]
+    },
+    "PracticalServiceRecord": {
+      "title": "Practical Service Record",
+      "description": "A record of a student's practical service activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the record." },
+        "studentId": { "type": "string", "description": "ID of the student." },
+        "serviceType": { "type": "string", "description": "Type of service (e.g., نظافة, ترتيب)." },
+        "description": { "type": "string", "description": "Description of the activity." },
+        "points": { "type": "number", "description": "Points awarded for the service." },
+        "date": { "type": "string", "format": "date", "description": "Date of the service." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["studentId", "serviceType", "description", "points", "date", "updatedAt", "updatedBy"]
+    },
+    "Curriculum": {
+      "title": "Curriculum",
+      "description": "A PDF curriculum for a specific squad.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Squad name (e.g., الفرقة الأولى)." },
+        "pdfUrl": { "type": "string", "description": "Link to the PDF file." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["pdfUrl", "updatedAt", "updatedBy"]
+    },
+    "SliderImage": {
+      "title": "Slider Image",
+      "description": "An image for the home page slider.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the image." },
+        "imageUrl": { "type": "string", "description": "Link to the image file." },
+        "caption": { "type": "string", "description": "Optional caption for the image." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the image was added." },
+        "createdBy": { "type": "string", "description": "Username of the user who added the image." }
+      },
+      "required": ["imageUrl", "createdAt", "createdBy"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "A generated PDF report for attendance, grades, or practical service.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the report." },
+        "title": { "type": "string", "description": "Title of the report." },
+        "type": { "type": "string", "enum": ["attendance", "tayo", "practical"], "description": "Type of report." },
+        "pdfUrl": { "type": "string", "description": "Link to the PDF file (Base64 or Storage URL)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the report was generated." },
+        "createdBy": { "type": "string", "description": "Username of the user who generated the report." },
+        "squad": { "type": "string", "description": "Squad the report belongs to." }
+      },
+      "required": ["title", "type", "pdfUrl", "createdAt", "createdBy"]
+    },
+    "StaffMember": {
+      "title": "Staff Member",
+      "description": "A member of the service staff (coordinator, servant, etc.).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the staff member." },
+        "name": { "type": "string", "description": "Name of the staff member." },
+        "responsibility": { "type": "string", "description": "Role or responsibility." },
+        "squad": { "type": "string", "enum": ["الأولى", "الثانية", "عام"], "description": "Squad of the staff member." },
+        "imageUrl": { "type": "string", "description": "Photo of the staff member (Base64 or Storage URL)." },
+        "rating": { "type": "number", "description": "Rating (1-5 stars)." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["name", "responsibility", "squad", "rating", "updatedAt", "updatedBy"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "A church event or service activity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the event." },
+        "name": { "type": "string", "description": "Name of the event." },
+        "date": { "type": "string", "format": "date", "description": "Date of the event." },
+        "time": { "type": "string", "description": "Time of the event." },
+        "location": { "type": "string", "description": "Location of the event." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the event was created." }
+      },
+      "required": ["name", "date", "time", "location", "createdAt"]
+    },
+    "ExamLink": {
+      "title": "Exam Link",
+      "description": "A Google Form link for a monthly exam.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the exam link (e.g., month name)." },
+        "month": { "type": "string", "description": "Month name (e.g., June, July)." },
+        "link": { "type": "string", "description": "Google Form link." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["month", "link", "updatedAt", "updatedBy"]
+    },
+    "DashboardStats": {
+      "title": "Dashboard Stats",
+      "description": "Aggregated statistics for the dashboard.",
+      "type": "object",
+      "properties": {
+        "totalStudents": { "type": "number" },
+        "activeStudents": { "type": "number" },
+        "attendanceRate": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["totalStudents", "activeStudents", "attendanceRate", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "/students": { "schema": "Student", "description": "Collection of students." },
+    "/attendance": { "schema": "AttendanceRecord", "description": "Collection of attendance records." },
+    "/grades": { "schema": "GradeRecord", "description": "Collection of grade records." },
+    "/users": { "schema": "User", "description": "Collection of users and their roles." },
+    "/practical_service": { "schema": "PracticalServiceRecord", "description": "Collection of practical service records." },
+    "/resources": { "schema": "Resource", "description": "Collection of service resources." },
+    "/curriculum": { "schema": "Curriculum", "description": "Collection of squad curricula." },
+    "/slider_images": { "schema": "SliderImage", "description": "Collection of home page slider images." },
+    "/reports": { "schema": "Report", "description": "Collection of generated reports." },
+    "/staff": { "schema": "StaffMember", "description": "Collection of staff members." },
+    "/events": { "schema": "Event", "description": "Collection of church events." },
+    "/exam_links": { "schema": "ExamLink", "description": "Collection of monthly exam links." },
+    "/acceptance_evaluations": { "schema": "AcceptanceEvaluation", "description": "Collection of acceptance evaluations." },
+    "/dashboard_stats": { "schema": "DashboardStats", "description": "Collection of dashboard statistics." }
+  }
+}

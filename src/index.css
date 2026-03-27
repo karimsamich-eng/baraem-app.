@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Tajawal", "Cairo", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Amiri", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-royal-red: #9B1B1B;
+  --color-gold: #D4AF37;
+  --color-off-white: #F9F9F9;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-off-white text-stone-900 transition-colors duration-300;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 400px;
+    background-image: var(--logo-url);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.07;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    body::before {
+      width: 280px;
+      height: 280px;
+    }
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #F5F5F0;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #8B0000;
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D4AF37;
+  }
+
+  /* For Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #8B0000 #F5F5F0;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-royal-red text-white px-6 py-3 rounded-lg font-bold hover:bg-red-900 transition-all shadow-md active:scale-95;
+  }
+  
+  .card-clean {
+    @apply bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden;
+  }
+  
+  .input-clean {
+    @apply w-full px-4 py-3 bg-white border border-stone-200 rounded-lg focus:ring-2 focus:ring-gold focus:border-royal-red outline-none transition-all;
+  }
+}

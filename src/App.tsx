@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-const logo = './logo.png';
+const logo = import.meta.env.BASE_URL + 'logo.png';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -3855,8 +3855,16 @@ export default function App() {
     const unsubscribe = auth.onAuthStateChanged((u) => {
       setFirebaseReady(true);
     });
+
+    // Safety timeout: if Firebase takes more than 5 seconds, show the app anyway
+    const timer = setTimeout(() => {
+      setFirebaseReady(true);
+    }, 5000);
     
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {

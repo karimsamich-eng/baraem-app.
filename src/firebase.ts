@@ -1,7 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, getDocFromServer, FirestoreError, enableMultiTabIndexedDbPersistence, increment } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+// Firebase configuration hardcoded for GitHub Pages deployment
+const firebaseConfig = {
+  "projectId": "t-dragon-425607-b7",
+  "appId": "1:508734085338:web:524f9feb198469d3622de3",
+  "apiKey": "AIzaSyBVj8bDccenZozcEwe3u5nYdMf6kLLAYdk",
+  "authDomain": "t-dragon-425607-b7.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-0f91fc07-a9a8-490f-a47d-52ac633a33dc",
+  "storageBucket": "t-dragon-425607-b7.firebasestorage.app",
+  "messagingSenderId": "508734085338",
+  "measurementId": ""
+};
 
 // Remove measurementId to prevent adblockers from blocking Firebase initialization
 const { measurementId, ...safeConfig } = firebaseConfig as any;

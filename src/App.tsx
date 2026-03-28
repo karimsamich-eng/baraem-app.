@@ -417,8 +417,8 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
             referrerPolicy="no-referrer"
           />
         </div>
-        <h1 className="text-3xl font-bold mb-2 text-royal-red dark:text-gold">خدمة براعم</h1>
-        <p className="text-stone-500 dark:text-dark-muted mb-8 font-serif italic">"دعوا الأولاد يأتون إليّ"</p>
+        <h1 className="text-3xl font-bold mb-2 text-royal-red dark:text-gold">خدمة البراعم</h1>
+        <p className="text-stone-500 dark:text-dark-muted mb-8 font-serif italic"> مت 19 : 14"دعوا الأولاد يأتون إليّ"</p>
         
         <form onSubmit={handleSubmit} className="space-y-4 text-right">
           <div className="space-y-1">
@@ -491,7 +491,7 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
         </form>
         
         <p className="mt-8 text-stone-400 dark:text-dark-muted text-xs">
-          نظام إدارة خدمة البراعم - كنيسة مارجرجس
+          نظام إدارة خدمة البراعم - كنيسة مارجرجس-الشيخ زياد
         </p>
       </motion.div>
     </div>
@@ -756,7 +756,7 @@ const PracticalService = () => {
       };
 
       await generatePDFReport(reportData, 'practical', user);
-      addToast('تم إنشاء التقرير بنجاح وحفظه في الصندوق.', 'success');
+      addToast('تم إرسال التقرير بنجاح وإلى المنسق.', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'reports');
       addToast('فشل في إنشاء التقرير.', 'error');

@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-const logo = import.meta.env.BASE_URL + 'logo.jpg';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -114,13 +113,9 @@ const createPDFDocument = async (reportData: any, createdBy: string) => {
       }
     </style>
     <div class="report-container">
-      <div class="watermark">
-        <img src="${logo}" style="width: 100%; height: 100%; object-fit: contain;" />
-      </div>
       <div class="report-content">
         <div style="background-color: ${primaryColor}; color: white; padding: 30px; border-radius: 20px; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; flex-direction: row-reverse;">
           <div style="display: flex; align-items: center; gap: 20px; flex-direction: row-reverse;">
-            <img src="${logo}" style="width: 100px; height: 100px; object-fit: contain;" />
             <div style="text-align: right;">
               <h1 style="margin: 0; font-size: 32px; font-weight: bold;">خدمة البراعم الأرثوذكسية</h1>
               <h2 style="margin: 10px 0 0 0; font-size: 22px; opacity: 0.9;">${reportData.title || 'تقرير'}</h2>
@@ -409,14 +404,6 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-dark-surface p-6 md:p-10 mx-4 md:mx-0 rounded-3xl shadow-xl max-w-md w-full text-center border border-stone-100 dark:border-dark-border relative z-10"
       >
-        <div className="mb-8 inline-flex items-center justify-center w-24 h-24 bg-white dark:bg-dark-bg rounded-2xl shadow-lg border border-stone-100 dark:border-dark-border p-2">
-          <img 
-            src={logo} 
-            alt="Baraem Logo" 
-            className="w-full h-full object-contain"
-            referrerPolicy="no-referrer"
-          />
-        </div>
         <h1 className="text-3xl font-bold mb-2 text-royal-red dark:text-gold">خدمة البراعم</h1>
         <p className="text-stone-500 dark:text-dark-muted mb-8 font-serif italic"> مت 19 : 14"دعوا الأولاد يأتون إليّ"</p>
         
@@ -541,13 +528,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
               }}
               className="flex items-center gap-3 group transition-all text-right"
             >
-              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all">
-                <img 
-                  src={logo} 
-                  alt="Baraem Orthodox Logo" 
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="w-12 h-12 rounded-xl overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all bg-royal-red flex items-center justify-center text-white font-bold text-xl">
+                ب
               </div>
               <span className="font-bold text-lg leading-tight text-[#8B0000] dark:text-gold group-hover:text-royal-red transition-colors">براعم<br/>أرثوذكسية</span>
             </button>
@@ -3635,12 +3617,6 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                 transition={{ duration: 0.8 }}
                 className="flex flex-col items-center text-center mb-8 md:mb-16"
               >
-                <img 
-                  src={logo} 
-                  alt="Baraem Orthodox Logo" 
-                  className="h-32 md:h-48 w-auto mb-6 md:mb-8 drop-shadow-2xl"
-                  referrerPolicy="no-referrer"
-                />
                 <h1 className="text-3xl md:text-5xl font-bold text-royal-red mb-2">مرحباً بك من جديد</h1>
                 <p className="text-stone-500 text-base md:text-lg italic">لوحة تحكم إدارة خدمة البراعم</p>
               </motion.header>
@@ -4019,7 +3995,6 @@ const AppContent = () => {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <img src={logo} alt="Baraem Logo" className="w-32 h-32 mb-8 animate-pulse" referrerPolicy="no-referrer" />
       <div className="w-12 h-12 border-4 border-stone-200 border-t-[#8B0000] rounded-full animate-spin" />
       <p className="mt-8 text-[#8B0000] font-bold text-lg text-center px-4">
         جاري تحميل خدمة البراعم... يرجى التأكد من اتصال الإنترنت
@@ -4051,8 +4026,7 @@ const AppContent = () => {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <img src={logo} alt="Logo" className="h-8 w-auto" referrerPolicy="no-referrer" />
-          <span className="font-bold text-royal-red">براعم</span>
+          <span className="font-bold text-royal-red text-xl">براعم</span>
         </div>
         {user && (
           <div className="w-10 h-10 bg-gold text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
@@ -4114,8 +4088,6 @@ export default function App() {
   const [firebaseReady, setFirebaseReady] = useState(false);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--logo-url', `url(${logo})`);
-    
     // Listen for Firebase Auth state changes
     const unsubscribe = auth.onAuthStateChanged((u) => {
       setFirebaseReady(true);

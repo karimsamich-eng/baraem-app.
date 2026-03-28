@@ -63,7 +63,7 @@ export const HeroSlider = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
           {currentImage.caption && (
             <div className="absolute bottom-6 md:bottom-8 right-6 md:right-8 text-white">
-              <h2 className="text-xl md:text-3xl font-bold">{currentImage.caption}</h2>
+              <h2 className="text-lg md:text-3xl font-bold">{currentImage.caption}</h2>
             </div>
           )}
         </motion.div>

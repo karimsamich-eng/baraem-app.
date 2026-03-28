@@ -779,7 +779,7 @@ const PracticalService = () => {
               type="date" 
               value={reportDate}
               onChange={(e) => setReportDate(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-stone-700 text-sm font-bold"
+              className="bg-transparent border-none focus:ring-0 text-stone-700 text-sm font-bold w-full"
             />
           </div>
           {!!user && (
@@ -806,7 +806,7 @@ const PracticalService = () => {
 
       <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-right">
+          <table className="w-full text-right min-w-[600px]">
             <thead>
               <tr className="bg-off-white/50 border-b border-stone-100">
                 <th className="p-4 font-bold text-stone-600">الطالب</th>
@@ -3641,8 +3641,8 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                   className="w-full max-w-[200px] md:max-w-[300px] h-auto mb-6 md:mb-8 drop-shadow-2xl"
                   referrerPolicy="no-referrer"
                 />
-                <h1 className="text-3xl md:text-5xl font-bold text-royal-red mb-2">مرحباً بك من جديد</h1>
-                <p className="text-stone-500 text-base md:text-lg italic">لوحة تحكم إدارة خدمة البراعم</p>
+                <h1 className="text-xl md:text-5xl font-bold text-royal-red mb-2">مرحباً بك من جديد</h1>
+                <p className="text-stone-500 text-sm md:text-lg italic">لوحة تحكم إدارة خدمة البراعم</p>
               </motion.header>
 
               <div className="mb-8 md:mb-12">
@@ -4041,7 +4041,7 @@ const AppContent = () => {
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-dark-surface border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-6 z-30">
+      <header className="lg:hidden sticky top-0 left-0 right-0 h-16 bg-white dark:bg-dark-surface border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-6 z-30">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsSidebarOpen(true)}
@@ -4054,12 +4054,18 @@ const AppContent = () => {
           <img src={logo} alt="Logo" className="h-10 w-auto" referrerPolicy="no-referrer" />
           <span className="font-bold text-royal-red">براعم</span>
         </div>
-        {user && (
-          <div className="w-10 h-10 bg-gold text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
-            {user.displayName?.[0]}
-          </div>
-        )}
-      </div>
+        <div className="flex items-center gap-2">
+          {/* Notification Bell - ensure it's easily clickable */}
+          <button className="p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
+            <Bell size={24} />
+          </button>
+          {user && (
+            <div className="w-10 h-10 bg-gold text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
+              {user.displayName?.[0]}
+            </div>
+          )}
+        </div>
+      </header>
 
       <Sidebar 
         activeTab={activeTab} 

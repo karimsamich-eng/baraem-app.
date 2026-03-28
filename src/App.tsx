@@ -20,11 +20,11 @@ import {
   CheckCircle2, XCircle, Clock, MoreVertical, Edit2, Trash2, ChevronRight, 
   ArrowLeft, Save, Filter, Download, UserPlus, BookOpen, AlertCircle, Star, Heart,
   FileText, Eye, EyeOff, Menu, X, Upload, Image as ImageIcon,
-  CheckCircle, Info, MessageCircle, Sun, Moon, UserCog
+  CheckCircle, Info, MessageCircle, Sun, Moon, UserCog, Bell, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-const logo = '/logo.png';
+const logo = import.meta.env.BASE_URL + 'logo.png';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -3688,6 +3688,277 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
   );
 };
 
+interface Alert {
+  id: string;
+  studentId: string;
+  studentName: string;
+  type: 'yellow' | 'maroon' | 'engagement';
+  message: string;
+}
+
+const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: string) => void }) => {
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const { user } = useAuth();
+
+  const [students, setStudents] = useState<Student[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [interactionGrades, setInteractionGrades] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(collection(db, 'students'), (snap) => {
+      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const dateString = ninetyDaysAgo.toISOString().split('T')[0];
+    
+    const unsubscribe = onSnapshot(query(collection(db, 'attendance'), where('date', '>=', dateString)), (snap) => {
+      setAttendanceRecords(snap.docs.map(d => d.data()));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const dateString = ninetyDaysAgo.toISOString().split('T')[0];
+    
+    const unsubscribe = onSnapshot(query(collection(db, 'grades'), where('subject', '==', 'تفاعل'), where('date', '>=', dateString)), (snap) => {
+      setInteractionGrades(snap.docs.map(d => d.data()));
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (students.length === 0 || attendanceRecords.length === 0) return;
+
+    const uniqueDates = Array.from(new Set(attendanceRecords.map(r => r.date))).sort((a, b) => b.localeCompare(a));
+    
+    // Day Filtering: ONLY look at Saturdays
+    const saturdayDates = uniqueDates.filter(dateStr => {
+      const [y, m, d] = dateStr.split('-');
+      const date = new Date(Number(y), Number(m) - 1, Number(d));
+      return date.getDay() === 6; // 6 is Saturday
+    });
+
+    const last8 = saturdayDates.slice(0, 8);
+    const last4 = saturdayDates.slice(0, 4);
+    const last2 = saturdayDates.slice(0, 2);
+
+    if (last2.length < 2) {
+      setAlerts([]);
+      return;
+    }
+
+    const newAlerts: Alert[] = [];
+
+    students.forEach(student => {
+      const attended = (date: string) => {
+        const record = attendanceRecords.find(r => r.studentId === student.id && r.date === date);
+        return record && (record.status === 'present' || record.status === 'late');
+      };
+
+      const absent = (date: string) => !attended(date);
+
+      // 1. Maroon Alert
+      let absencesInLast8 = 0;
+      last8.forEach(date => {
+        if (absent(date)) absencesInLast8++;
+      });
+
+      if (absencesInLast8 >= 5) {
+        newAlerts.push({
+          id: `${student.id}-maroon`,
+          studentId: student.id,
+          studentName: student.name,
+          type: 'maroon',
+          message: `غياب 5 مرات أو أكثر في آخر 8 أسابيع (${absencesInLast8} غيابات)`
+        });
+      } else {
+        // 2. Yellow Alert
+        if (last2.every(date => absent(date))) {
+          newAlerts.push({
+            id: `${student.id}-yellow`,
+            studentId: student.id,
+            studentName: student.name,
+            type: 'yellow',
+            message: `غياب أسبوعين متتاليين`
+          });
+        }
+      }
+
+      // 3. Engagement Alert
+      if (last4.length === 4 && last4.every(date => attended(date))) {
+        const hasInteraction = interactionGrades.some(g => g.studentId === student.id && last4.includes(g.date) && g.score > 0);
+        if (!hasInteraction) {
+          newAlerts.push({
+            id: `${student.id}-engagement`,
+            studentId: student.id,
+            studentName: student.name,
+            type: 'engagement',
+            message: `حضور 4 أسابيع متتالية بدون أي نقاط تفاعل`
+          });
+        }
+      }
+    });
+
+    setAlerts(newAlerts);
+  }, [students, attendanceRecords, interactionGrades]);
+
+  if (!user) return null;
+
+  return (
+    <>
+      <div className="fixed bottom-6 left-6 z-50">
+        <button onClick={() => setIsOpen(!isOpen)} className="relative bg-white p-4 rounded-full shadow-2xl border border-stone-200 hover:bg-stone-50 transition-all hover:scale-105">
+          <Bell size={28} className="text-stone-600" />
+          {alerts.length > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-md border-2 border-white">
+              {alerts.length}
+            </span>
+          )}
+        </button>
+
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.9 }}
+              className="absolute bottom-20 left-0 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-stone-100 overflow-hidden flex flex-col max-h-[70vh] z-50"
+            >
+              <div className="p-4 bg-stone-50 border-b border-stone-100 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Bell size={18} className="text-stone-500" />
+                  <h3 className="font-bold text-stone-800">مركز التنبيهات الذكي</h3>
+                </div>
+                <span className="text-xs font-bold bg-stone-200 text-stone-600 px-2 py-1 rounded-full">{alerts.length}</span>
+              </div>
+              <div className="overflow-y-auto p-3 space-y-3">
+                {alerts.length === 0 ? (
+                  <div className="p-8 text-center text-stone-400 flex flex-col items-center gap-2">
+                    <CheckCircle size={32} className="text-emerald-400" />
+                    <p className="text-sm font-medium">لا توجد تنبيهات حالياً. كل شيء على ما يرام!</p>
+                  </div>
+                ) : (
+                  alerts.map(alert => (
+                    <div 
+                      key={alert.id} 
+                      onClick={() => { setSelectedAlert(alert); setIsOpen(false); }}
+                      className={`p-4 rounded-2xl border cursor-pointer transition-all hover:shadow-md ${
+                        alert.type === 'maroon' ? 'bg-rose-50 border-rose-200 hover:bg-rose-100' :
+                        alert.type === 'yellow' ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' :
+                        'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-sm text-stone-900">{alert.studentName}</span>
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                          alert.type === 'maroon' ? 'bg-rose-200 text-rose-800' :
+                          alert.type === 'yellow' ? 'bg-amber-200 text-amber-800' :
+                          'bg-blue-200 text-blue-800'
+                        }`}>
+                          {alert.type === 'maroon' ? 'إنذار عنابي' : alert.type === 'yellow' ? 'إنذار أصفر' : 'إنذار تفاعل'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-600 leading-relaxed">{alert.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <AnimatePresence>
+        {selectedAlert && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100 overflow-hidden"
+            >
+              <div className={`p-6 border-b flex items-center justify-between ${
+                selectedAlert.type === 'maroon' ? 'bg-rose-50 border-rose-100' :
+                selectedAlert.type === 'yellow' ? 'bg-amber-50 border-amber-100' :
+                'bg-blue-50 border-blue-100'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    selectedAlert.type === 'maroon' ? 'bg-rose-200 text-rose-700' :
+                    selectedAlert.type === 'yellow' ? 'bg-amber-200 text-amber-700' :
+                    'bg-blue-200 text-blue-700'
+                  }`}>
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-stone-900">{selectedAlert.studentName}</h2>
+                    <p className={`text-xs font-bold ${
+                      selectedAlert.type === 'maroon' ? 'text-rose-600' :
+                      selectedAlert.type === 'yellow' ? 'text-amber-600' :
+                      'text-blue-600'
+                    }`}>
+                      {selectedAlert.type === 'maroon' ? 'إنذار عنابي' : selectedAlert.type === 'yellow' ? 'إنذار أصفر' : 'إنذار تفاعل'}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedAlert(null)} className="p-2 hover:bg-white/50 rounded-full transition-colors">
+                  <XCircle size={24} className="text-stone-400" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                  <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">تفاصيل الإنذار</h4>
+                  <p className="text-sm text-stone-700 leading-relaxed">{selectedAlert.message}</p>
+                </div>
+                
+                <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                  <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">الإجراء المطلوب</h4>
+                  <p className="text-sm text-stone-700 leading-relaxed">
+                    {selectedAlert.type === 'maroon' ? 'يرجى التواصل مع ولي الأمر فوراً لمناقشة سبب الغياب المتكرر.' :
+                     selectedAlert.type === 'yellow' ? 'يرجى متابعة الطالب ومعرفة سبب غيابه في الأسبوعين الماضيين.' :
+                     'يرجى تشجيع الطالب على المشاركة والتفاعل أثناء الخدمة.'}
+                  </p>
+                </div>
+                
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    onClick={() => {
+                      onStudentClick(selectedAlert.studentId);
+                      setSelectedAlert(null);
+                    }}
+                    className="flex-1 btn-primary py-3"
+                  >
+                    عرض ملف الطالب
+                  </button>
+                  <button 
+                    onClick={() => setSelectedAlert(null)}
+                    className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-stone-100 transition-colors"
+                  >
+                    إغلاق
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
 const AppContent = () => {
   const { user, loading, canAccess } = useAuth();
   const { addToast } = useToast();
@@ -3767,6 +4038,7 @@ const AppContent = () => {
   return (
     <div className="min-h-screen bg-off-white dark:bg-dark-bg flex overflow-x-hidden transition-colors duration-300">
       <ViewOnlyBadge />
+      <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-dark-surface border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-6 z-30">

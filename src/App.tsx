@@ -625,10 +625,10 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
 // --- Practical Service ---
 const PracticalService = () => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
-  const [services, setServices] = useState<any[]>([]);
+  const [dailyServices, setDailyServices] = useState<any[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingService, setEditingService] = useState<any | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
@@ -648,26 +648,29 @@ const PracticalService = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedStudent) return;
-    const q = query(collection(db, 'practical_service'), where('studentId', '==', selectedStudent.id), orderBy('date', 'desc'));
+    const q = query(collection(db, 'practical_service'), where('date', '==', reportDate));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list: any[] = [];
       snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setServices(list);
+      setDailyServices(list);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'practical_service');
     });
     return () => unsubscribe();
-  }, [selectedStudent]);
-
-  const [editingService, setEditingService] = useState<any | null>(null);
+  }, [reportDate]);
 
   const handleAddService = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedStudent) return;
     const formData = new FormData(e.currentTarget);
+    const studentId = formData.get('studentId') as string;
+
+    if (!studentId) {
+      addToast('الرجاء اختيار الطالب', 'error');
+      return;
+    }
+
     const serviceData = {
-      studentId: selectedStudent.id,
+      studentId,
       serviceType: formData.get('serviceType') as string,
       description: formData.get('description') as string,
       date: formData.get('date') as string,
@@ -678,24 +681,27 @@ const PracticalService = () => {
 
     try {
       if (editingService) {
-        // Revert old points
-        const studentRef = doc(db, 'students', selectedStudent.id);
-        await updateDoc(studentRef, { practicalPoints: increment(-editingService.points) });
+        if (editingService.studentId !== studentId) {
+          const oldStudentRef = doc(db, 'students', editingService.studentId);
+          await updateDoc(oldStudentRef, { practicalPoints: increment(-editingService.points) });
+          
+          const newStudentRef = doc(db, 'students', studentId);
+          await updateDoc(newStudentRef, { practicalPoints: increment(serviceData.points) });
+        } else {
+          const diff = serviceData.points - editingService.points;
+          if (diff !== 0) {
+            const studentRef = doc(db, 'students', studentId);
+            await updateDoc(studentRef, { practicalPoints: increment(diff) });
+          }
+        }
         
-        // Update service
         await updateDoc(doc(db, 'practical_service', editingService.id), serviceData);
-        
-        // Add new points
-        await updateDoc(studentRef, { practicalPoints: increment(serviceData.points) });
         addToast('تم تعديل الخدمة بنجاح', 'success');
-        setEditingService(null);
-        setIsAdding(false);
       } else {
         const docRef = doc(collection(db, 'practical_service'));
         await setDoc(docRef, { ...serviceData, id: docRef.id });
         
-        // Update student practical points
-        const studentRef = doc(db, 'students', selectedStudent.id);
+        const studentRef = doc(db, 'students', studentId);
         await updateDoc(studentRef, {
           practicalPoints: increment(serviceData.points)
         });
@@ -734,27 +740,18 @@ const PracticalService = () => {
     if (!user) return;
     setGenerating(true);
     try {
-      const q = query(
-        collection(db, 'practical_service'),
-        where('date', '==', reportDate)
-      );
-      const snap = await getDocs(q);
-      
-      if (snap.empty) {
+      if (dailyServices.length === 0) {
         addToast('لا توجد خدمات مسجلة في هذا اليوم', 'error');
         return;
       }
 
-      const dailyServices: any[] = [];
-      snap.forEach(doc => dailyServices.push({ id: doc.id, ...doc.data() }));
-
       const reportData = {
         title: `تقرير الخدمة العملية اليومي - ${reportDate}`,
         squad: 'جميع الفرق',
-        headers: ['الطالب', 'الخدمة', 'الوصف', 'النقاط'],
+        headers: ['الطالب', 'التقييم (النقاط)', 'نوع الخدمة', 'ملاحظات'],
         rows: dailyServices.map(s => {
           const student = students.find(st => st.id === s.studentId);
-          return [student?.name || 'طالب غير معروف', s.serviceType, s.description, s.points.toString()];
+          return [student?.name || 'طالب غير معروف', s.points.toString(), s.serviceType, s.description];
         })
       };
 
@@ -772,8 +769,8 @@ const PracticalService = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-4 text-center md:text-right">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">الخدمة العملية</h1>
-          <p className="text-stone-500 italic">تسجيل ومتابعة الأنشطة والخدمات العملية للطلاب</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">تقييم الخدمة العملية</h1>
+          <p className="text-stone-500 italic">سجل التقييمات المجمعة للطلاب حسب اليوم</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-stone-200 w-full md:w-auto">
@@ -782,121 +779,105 @@ const PracticalService = () => {
               type="date" 
               value={reportDate}
               onChange={(e) => setReportDate(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-stone-700 text-sm"
+              className="bg-transparent border-none focus:ring-0 text-stone-700 text-sm font-bold"
             />
           </div>
           {!!user && (
             <button 
               onClick={handleGenerateReport}
-              disabled={generating}
+              disabled={generating || dailyServices.length === 0}
               className="btn-primary flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 w-full md:w-auto"
             >
               <FileText size={20} />
               {generating ? 'جاري الإنشاء...' : 'استخراج تقرير اليوم'}
             </button>
           )}
+          {!!user && (
+            <button 
+              onClick={() => { setEditingService(null); setIsAdding(true); }}
+              className="btn-primary flex items-center justify-center gap-2 w-full md:w-auto"
+            >
+              <Plus size={20} />
+              إضافة تقييم
+            </button>
+          )}
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-12">
-        <div className="lg:col-span-1">
-          <div className="card-clean overflow-hidden">
-            <div className="p-6 border-b border-stone-100 bg-off-white/50">
-              <h3 className="font-bold text-xl text-royal-red">اختر طالباً</h3>
-            </div>
-            <div className="max-h-[600px] overflow-y-auto p-4 space-y-2">
-              {students.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setSelectedStudent(s)}
-                  className={`w-full flex items-center gap-3 p-4 rounded-xl transition-all border ${
-                    selectedStudent?.id === s.id 
-                      ? 'bg-royal-red text-white border-royal-red shadow-md' 
-                      : 'hover:bg-off-white text-stone-600 border-transparent hover:border-stone-100'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                    selectedStudent?.id === s.id ? 'bg-white/20' : 'bg-stone-100'
-                  }`}>
-                    {s.name[0]}
-                  </div>
-                  <span className="font-bold">{s.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-2">
-          {selectedStudent ? (
-            <div className="space-y-6 md:space-y-8">
-              <div className="card-clean p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-r-4 border-r-gold">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-stone-900">{selectedStudent.name}</h2>
-                  <p className="text-stone-400 font-medium">{selectedStudent.gradeLevel}</p>
-                </div>
-                {!!user && (
-                  <button 
-                    onClick={() => setIsAdding(true)}
-                    className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <Plus size={20} />
-                    إضافة خدمة
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {services.map(service => (
-                  <motion.div 
-                    key={service.id}
-                    initial={{ opacity: 0, y: 20 }}
+      <div className="bg-white rounded-3xl shadow-sm border border-stone-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-right">
+            <thead>
+              <tr className="bg-off-white/50 border-b border-stone-100">
+                <th className="p-4 font-bold text-stone-600">الطالب</th>
+                <th className="p-4 font-bold text-stone-600">التقييم (النقاط)</th>
+                <th className="p-4 font-bold text-stone-600">نوع الخدمة</th>
+                <th className="p-4 font-bold text-stone-600">ملاحظات</th>
+                <th className="p-4 font-bold text-stone-600">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dailyServices.map((service, idx) => {
+                const student = students.find(s => s.id === service.studentId);
+                return (
+                  <motion.tr 
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="card-clean p-6 border-t-4 border-t-gold"
+                    transition={{ delay: idx * 0.05 }}
+                    key={service.id} 
+                    className="border-b border-stone-50 hover:bg-stone-50/50 transition-colors"
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="px-3 py-1 bg-royal-red/10 text-royal-red rounded-lg text-xs font-bold border border-royal-red/20">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center font-bold text-lg text-stone-600 shadow-sm border border-stone-200">
+                          {student?.name[0] || '?'}
+                        </div>
+                        <span className="font-bold text-stone-900 text-lg">{student?.name || 'طالب غير معروف'}</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2 text-gold bg-gold/10 w-fit px-3 py-1.5 rounded-lg border border-gold/20">
+                        <Star size={18} fill="currentColor" />
+                        <span className="font-bold text-lg">{service.points}</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="px-3 py-1.5 bg-royal-red/10 text-royal-red rounded-lg text-sm font-bold border border-royal-red/20">
                         {service.serviceType}
                       </span>
-                      <span className="text-stone-400 text-xs font-mono">{service.date}</span>
-                    </div>
-                    <p className="text-stone-700 font-bold mb-4">{service.description}</p>
-                    <div className="flex items-center justify-between pt-4 border-t border-stone-50">
-                      <div className="flex items-center gap-2 text-gold">
-                        <Star size={16} fill="currentColor" />
-                        <span className="font-bold">{service.points} نقطة</span>
-                      </div>
+                    </td>
+                    <td className="p-4 text-stone-600 font-medium">
+                      {service.description}
+                    </td>
+                    <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-stone-400">بواسطة: {service.updatedBy}</span>
                         {(user?.role === 'admin' || user?.role === 'coordinator' || user?.role === 'practical') && (
                           <>
-                            <button onClick={() => { setEditingService(service); setIsAdding(true); }} className="p-1.5 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200">
-                              <Edit2 size={14} />
+                            <button onClick={() => { setEditingService(service); setIsAdding(true); }} className="p-2 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 transition-colors">
+                              <Edit2 size={16} />
                             </button>
-                            <button onClick={() => handleDeleteService(service)} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
-                              <Trash2 size={14} />
+                            <button onClick={() => handleDeleteService(service)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors">
+                              <Trash2 size={16} />
                             </button>
                           </>
                         )}
                       </div>
+                    </td>
+                  </motion.tr>
+                );
+              })}
+              {dailyServices.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-12 text-center text-stone-400 italic bg-off-white/30">
+                    <div className="flex flex-col items-center justify-center gap-4">
+                      <Heart size={48} className="text-stone-200" />
+                      <p className="text-lg">لا توجد تقييمات مسجلة في هذا اليوم.</p>
                     </div>
-                  </motion.div>
-                ))}
-                {services.length === 0 && (
-                  <div className="col-span-full py-12 text-center text-stone-400 italic bg-white rounded-3xl border border-stone-100">
-                    لا توجد خدمات مسجلة لهذا الطالب بعد.
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-3xl border-2 border-stone-100 border-dashed">
-              <div className="w-20 h-20 bg-off-white rounded-full flex items-center justify-center mb-6">
-                <Heart size={40} className="text-stone-200" />
-              </div>
-              <h3 className="text-xl font-bold text-stone-400">اختر طالباً لعرض سجلات الخدمة العملية</h3>
-            </div>
-          )}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -907,17 +888,27 @@ const PracticalService = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100"
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100 overflow-hidden"
             >
-              <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
-                <h2 className="text-2xl font-bold text-royal-red">تسجيل خدمة عملية</h2>
+              <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
+                <h2 className="text-2xl font-bold text-royal-red">
+                  {editingService ? 'تعديل التقييم' : 'إضافة تقييم جديد'}
+                </h2>
                 <button onClick={() => { setIsAdding(false); setEditingService(null); }} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
               
-              <form onSubmit={handleAddService} className="p-8 space-y-6">
-                <input type="hidden" name="id" value={editingService?.id || ''} />
+              <form onSubmit={handleAddService} className="p-6 space-y-5">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الطالب</label>
+                  <select name="studentId" defaultValue={editingService?.studentId || ''} required className="input-clean">
+                    <option value="">اختر الطالب...</option>
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">نوع الخدمة</label>
                   <select name="serviceType" defaultValue={editingService?.serviceType || ''} required className="input-clean">
@@ -936,30 +927,32 @@ const PracticalService = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الوصف</label>
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">ملاحظات (الوصف)</label>
                   <input name="description" defaultValue={editingService?.description || ''} required className="input-clean" placeholder="ماذا فعل الطالب؟" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">النقاط</label>
-                  <input name="points" type="number" min="0" required className="input-clean bg-stone-50" readOnly={user?.role === 'practical' || user?.role === 'tayo'} defaultValue={editingService?.points || ((user?.role === 'practical' || user?.role === 'tayo') ? 20 : 10)} />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التاريخ</label>
-                  <input name="date" type="date" defaultValue={editingService?.date || new Date().toISOString().split('T')[0]} required className="input-clean" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التقييم (النقاط)</label>
+                    <input name="points" type="number" min="0" required className="input-clean bg-stone-50" readOnly={user?.role === 'practical' || user?.role === 'tayo'} defaultValue={editingService?.points || ((user?.role === 'practical' || user?.role === 'tayo') ? 20 : 10)} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التاريخ</label>
+                    <input name="date" type="date" defaultValue={editingService?.date || reportDate} required className="input-clean" />
+                  </div>
                 </div>
                 <div className="pt-4 flex gap-4">
                   <button 
                     type="button"
                     onClick={() => { setIsAdding(false); setEditingService(null); }}
-                    className="flex-1 py-4 rounded-xl font-bold text-stone-500 hover:bg-stone-50 transition-colors"
+                    className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-stone-50 transition-colors"
                   >
                     إلغاء
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 btn-primary"
+                    className="flex-1 btn-primary py-3"
                   >
-                    حفظ الخدمة
+                    حفظ التقييم
                   </button>
                 </div>
               </form>

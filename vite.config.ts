@@ -22,14 +22,14 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           icons: [
             {
-              src: 'logo.jpg',
+              src: 'logo.png',
               sizes: '192x192',
-              type: 'image/jpeg'
+              type: 'image/png'
             },
             {
-              src: 'logo.jpg',
+              src: 'logo.png',
               sizes: '512x512',
-              type: 'image/jpeg'
+              type: 'image/png'
             }
           ]
         },

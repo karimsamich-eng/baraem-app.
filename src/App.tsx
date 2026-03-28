@@ -554,7 +554,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setIsOpen(false)}
-                className="lg:hidden p-2 hover:bg-stone-100 dark:hover:bg-dark-surface rounded-full text-stone-400"
+                className="lg:hidden p-2 hover:bg-red-50 hover:text-red-500 dark:hover:bg-dark-surface rounded-full text-stone-400 transition-colors"
               >
                 <X size={24} />
               </button>
@@ -853,10 +853,10 @@ const PracticalService = () => {
                       <div className="flex items-center gap-2">
                         {(user?.role === 'admin' || user?.role === 'coordinator' || user?.role === 'practical') && (
                           <>
-                            <button onClick={() => { setEditingService(service); setIsAdding(true); }} className="p-2 bg-stone-100 text-stone-600 rounded-xl hover:bg-stone-200 transition-colors">
+                            <button onClick={() => { setEditingService(service); setIsAdding(true); }} className="p-2 bg-stone-100 text-stone-600 rounded-xl hover:bg-blue-100 hover:text-blue-600 transition-colors">
                               <Edit2 size={16} />
                             </button>
-                            <button onClick={() => handleDeleteService(service)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors">
+                            <button onClick={() => handleDeleteService(service)} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 hover:text-red-700 transition-colors">
                               <Trash2 size={16} />
                             </button>
                           </>
@@ -894,7 +894,7 @@ const PracticalService = () => {
                 <h2 className="text-2xl font-bold text-royal-red">
                   {editingService ? 'تعديل التقييم' : 'إضافة تقييم جديد'}
                 </h2>
-                <button onClick={() => { setIsAdding(false); setEditingService(null); }} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+                <button onClick={() => { setIsAdding(false); setEditingService(null); }} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
@@ -1245,13 +1245,13 @@ const ResourceManager = () => {
                   <div className="flex gap-2">
                     <button 
                       onClick={() => setEditingResource(res)}
-                      className="p-2 text-stone-300 hover:text-gold transition-colors"
+                      className="p-2 text-stone-300 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
                     >
                       <Edit2 size={18} />
                     </button>
                     <button 
                       onClick={() => handleDelete(res.id)}
-                      className="p-2 text-stone-300 hover:text-royal-red transition-colors"
+                      className="p-2 text-stone-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -1259,7 +1259,7 @@ const ResourceManager = () => {
                       href={res.link} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="p-2 text-stone-300 hover:text-gold transition-colors"
+                      className="p-2 text-stone-300 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg transition-colors"
                     >
                       <Download size={18} />
                     </a>
@@ -1282,7 +1282,7 @@ const ResourceManager = () => {
             >
               <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
                 <h2 className="text-2xl font-bold text-royal-red">إضافة مورد جديد</h2>
-                <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+                <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
@@ -1330,7 +1330,7 @@ const ResourceManager = () => {
             >
               <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
                 <h2 className="text-2xl font-bold text-royal-red">تعديل المورد</h2>
-                <button onClick={() => setEditingResource(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+                <button onClick={() => setEditingResource(null)} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
@@ -1542,7 +1542,7 @@ const StudentList = () => {
             className="w-full pr-12 pl-4 py-3 bg-white dark:bg-dark-surface rounded-2xl border border-stone-200 dark:border-dark-border focus:ring-2 focus:ring-gold outline-none transition-all shadow-sm dark:text-dark-text"
           />
         </div>
-        <button className="p-3 bg-white dark:bg-dark-surface rounded-2xl text-stone-500 dark:text-dark-muted hover:text-royal-red dark:hover:text-gold transition-colors border border-stone-200 dark:border-dark-border shadow-sm flex items-center justify-center">
+        <button className="p-3 bg-white dark:bg-dark-surface rounded-2xl text-stone-500 dark:text-dark-muted hover:bg-red-50 hover:text-royal-red dark:hover:bg-dark-bg dark:hover:text-gold transition-colors border border-stone-200 dark:border-dark-border shadow-sm flex items-center justify-center">
           <Filter size={20} />
         </button>
       </div>
@@ -1625,7 +1625,7 @@ const StudentList = () => {
             >
               <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
                 <h2 className="text-3xl font-bold text-royal-red">{editingStudent ? 'تعديل بيانات طالب' : 'إضافة طالب جديد'}</h2>
-                <button onClick={() => { setIsAdding(false); setEditingStudent(null); }} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+                <button onClick={() => { setIsAdding(false); setEditingStudent(null); }} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
@@ -2324,19 +2324,19 @@ const TayoScoring = () => {
                                   setEditingGrade(grade);
                                   setIsAdding(true);
                                 }}
-                                className="p-2 text-stone-400 hover:text-gold transition-colors"
+                                className="p-2 text-stone-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
                               >
                                 <Edit2 size={16} />
                               </button>
                               <button 
                                 onClick={() => handleDeleteGrade(grade)}
-                                className="p-2 text-stone-400 hover:text-red-600 transition-colors"
+                                className="p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
                               >
                                 <Trash2 size={16} />
                               </button>
                             </div>
                           ) : (
-                            <button className="p-2 text-stone-400 hover:text-royal-red transition-colors">
+                            <button className="p-2 text-stone-400 hover:bg-red-50 hover:text-royal-red rounded-lg transition-colors">
                               <MoreVertical size={16} />
                             </button>
                           )}
@@ -2376,7 +2376,7 @@ const TayoScoring = () => {
             >
               <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
                 <h2 className="text-2xl font-bold text-royal-red">{editingGrade ? 'تعديل سجل تقييم' : 'إضافة سجل تقييم'}</h2>
-                <button onClick={() => { setIsAdding(false); setEditingGrade(null); }} className="p-2 hover:bg-stone-100 rounded-full transition-colors">
+                <button onClick={() => { setIsAdding(false); setEditingGrade(null); }} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
@@ -2800,7 +2800,7 @@ function StaffPage() {
               />
               <button 
                 onClick={() => setViewPhoto(null)}
-                className="absolute -top-12 right-0 p-2 text-white hover:text-gold transition-colors"
+                className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 hover:text-red-400 rounded-full transition-colors"
               >
                 <X size={32} />
               </button>
@@ -2915,7 +2915,7 @@ const ReportsInbox = () => {
                   <button 
                     onClick={() => previewReport(report)}
                     disabled={processingId === report.id}
-                    className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-colors disabled:opacity-50"
+                    className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
                     title="معاينة"
                   >
                     {processingId === report.id ? (
@@ -2938,7 +2938,7 @@ const ReportsInbox = () => {
                   </button>
                   <button 
                     onClick={() => handleDeleteReport(report.id)}
-                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
                     title="حذف"
                   >
                     <Trash2 size={16} />
@@ -2968,7 +2968,7 @@ const ReportsInbox = () => {
                 <h2 className="text-2xl font-bold text-royal-red">معاينة التقرير</h2>
                 <button 
                   onClick={() => setPreviewUrl(null)}
-                  className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"
                 >
                   <X size={24} className="text-stone-400" />
                 </button>
@@ -3172,10 +3172,10 @@ export const StaffManager = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { setEditingMember(member); setPhotoBase64(null); setRating(member.rating); }} className="p-2 text-stone-400 hover:text-gold transition-colors">
+              <button onClick={() => { setEditingMember(member); setPhotoBase64(null); setRating(member.rating); }} className="p-2 text-stone-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
                 <Edit2 size={18} />
               </button>
-              <button onClick={() => handleDelete(member.id)} className="p-2 text-stone-400 hover:text-red-600 transition-colors">
+              <button onClick={() => handleDelete(member.id)} className="p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
                 <Trash2 size={18} />
               </button>
             </div>
@@ -3209,7 +3209,7 @@ export const StaffManager = () => {
               />
               <button 
                 onClick={() => setViewPhoto(null)}
-                className="absolute -top-12 right-0 p-2 text-white hover:text-gold transition-colors"
+                className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 hover:text-red-400 rounded-full transition-colors"
               >
                 <X size={32} />
               </button>
@@ -3489,7 +3489,7 @@ export const EventsManager = () => {
               <div className="p-2 bg-stone-50 rounded-lg text-gold">
                 <Calendar size={20} />
               </div>
-              <button onClick={() => handleDelete(event.id)} className="p-2 text-stone-300 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100">
+              <button onClick={() => handleDelete(event.id)} className="p-2 text-stone-300 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
                 <Trash2 size={18} />
               </button>
             </div>
@@ -3819,8 +3819,8 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
   return (
     <>
       <div className="fixed bottom-6 left-6 z-50">
-        <button onClick={() => setIsOpen(!isOpen)} className="relative bg-white p-4 rounded-full shadow-2xl border border-stone-200 hover:bg-stone-50 transition-all hover:scale-105">
-          <Bell size={28} className="text-stone-600" />
+        <button onClick={() => setIsOpen(!isOpen)} className="relative bg-white p-4 rounded-full shadow-2xl border border-stone-200 hover:bg-yellow-50 hover:text-yellow-600 transition-all hover:scale-105">
+          <Bell size={28} className="text-stone-600 hover:text-yellow-600 transition-colors" />
           {alerts.length > 0 && (
             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-md border-2 border-white">
               {alerts.length}
@@ -3913,7 +3913,7 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedAlert(null)} className="p-2 hover:bg-white/50 rounded-full transition-colors">
+                <button onClick={() => setSelectedAlert(null)} className="p-2 hover:bg-white/50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
               </div>
@@ -4045,7 +4045,7 @@ const AppContent = () => {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 hover:bg-stone-50 dark:hover:bg-dark-bg rounded-xl text-royal-red dark:text-gold transition-colors"
+            className="p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-royal-red dark:text-gold transition-colors"
           >
             <Menu size={24} />
           </button>

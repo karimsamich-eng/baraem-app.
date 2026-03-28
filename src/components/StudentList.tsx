@@ -199,7 +199,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
                   <button onClick={() => setSelectedStudentProfile(student)} className="flex-1 btn-secondary text-sm py-2">عرض الملف</button>
                 )}
                 {user && (user.role === 'admin' || user.role === 'coordinator') && (
-                  <button onClick={() => handleDelete(student.id)} className="p-2 text-royal-red hover:bg-royal-red/10 rounded-full"><Trash2 size={18} /></button>
+                  <button onClick={() => handleDelete(student.id)} className="p-2 text-royal-red hover:bg-red-50 hover:text-red-700 rounded-full transition-colors"><Trash2 size={18} /></button>
                 )}
               </div>
             </div>

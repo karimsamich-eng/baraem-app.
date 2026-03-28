@@ -161,7 +161,7 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
               {isDownloading ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
               <span>تحميل الملف</span>
             </button>
-            <button onClick={onClose} className="p-2 hover:bg-stone-100 rounded-full transition-colors"><X /></button>
+            <button onClick={onClose} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"><X /></button>
           </div>
         </div>
         

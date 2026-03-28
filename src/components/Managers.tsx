@@ -222,7 +222,7 @@ export const SliderManager = () => {
                   <img src={img.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   <button 
                     onClick={() => handleDelete(img.id)}
-                    className="absolute top-2 left-2 p-2 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    className="absolute top-2 left-2 p-2 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-700 transition-all shadow-lg"
                   >
                     <Trash2 size={18} />
                   </button>

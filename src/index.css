@@ -6,15 +6,15 @@
   --font-serif: "Amiri", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-royal-red: #9B1B1B;
-  --color-gold: #D4AF37;
-  --color-off-white: #F9F9F9;
+  --color-maroon: #800000;
+  --color-gold: #FFD700;
+  --color-off-white: #FFFFFF;
 }
 
 @layer base {
   * { box-sizing: border-box; }
   body {
-    @apply font-sans bg-off-white text-stone-900 transition-colors duration-300 overflow-x-hidden;
+    @apply font-sans bg-off-white text-[#212121] transition-colors duration-300 overflow-x-hidden;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     position: relative;
@@ -55,24 +55,24 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #8B0000;
+    background: #800000;
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #D4AF37;
+    background: #FFD700;
   }
 
   /* For Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #8B0000 #F5F5F0;
+    scrollbar-color: #800000 #FFFFFF;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-royal-red text-white px-6 py-3 rounded-lg font-bold hover:bg-red-900 transition-all shadow-md active:scale-95;
+    @apply bg-[#800000] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-all shadow-md active:scale-95;
   }
   
   .card-clean {
@@ -80,6 +80,6 @@
   }
   
   .input-clean {
-    @apply w-full px-4 py-3 bg-white border border-stone-200 rounded-lg focus:ring-2 focus:ring-gold focus:border-royal-red outline-none transition-all;
+    @apply w-full px-4 py-3 bg-white border border-stone-200 rounded-lg focus:ring-2 focus:ring-[#FFD700] focus:border-[#800000] outline-none transition-all;
   }
 }

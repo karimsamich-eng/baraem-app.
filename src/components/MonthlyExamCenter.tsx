@@ -56,7 +56,7 @@ export const MonthlyExamCenter = ({ user }: { user: any }) => {
 
   return (
     <div className="p-6 bg-stone-50 min-h-screen">
-      <h1 className="text-3xl font-bold mb-8 text-royal-red">مركز الامتحانات الشهرية</h1>
+      <h1 className="text-3xl font-bold mb-8 text-[#800000]">مركز الامتحانات الشهرية</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {months.map((month) => (
           <motion.div
@@ -77,7 +77,7 @@ export const MonthlyExamCenter = ({ user }: { user: any }) => {
                 <button
                   onClick={() => handleSave(month, examLinks[month]?.link || '')}
                   disabled={saving === month}
-                  className="w-full py-2 bg-royal-red text-white rounded-lg flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-[#800000] text-white rounded-lg flex items-center justify-center gap-2"
                 >
                   <Save size={16} />
                   {saving === month ? 'جاري الحفظ...' : 'حفظ'}
@@ -89,7 +89,7 @@ export const MonthlyExamCenter = ({ user }: { user: any }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`block w-full py-3 text-center rounded-lg ${
-                  examLinks[month]?.link ? 'bg-royal-red text-white' : 'bg-stone-200 text-stone-500 cursor-not-allowed'
+                  examLinks[month]?.link ? 'bg-[#800000] text-white' : 'bg-stone-200 text-stone-500 cursor-not-allowed'
                 }`}
               >
                 {examLinks[month]?.link ? 'فتح الامتحان' : 'لا يوجد رابط'}

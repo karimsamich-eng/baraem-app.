@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-const logo = '/logo.png';
+import logo from '/logo.png?url';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -66,7 +66,7 @@ const generatePDFReport = async (reportData: any, type: 'attendance' | 'tayo' | 
 const createPDFDocument = async (reportData: any, createdBy: string) => {
   // Dynamic color based on squad
   const isSquad2 = reportData.squad === 'الفرقة الثانية' || reportData.squad === 'الثانية';
-  const primaryColor = isSquad2 ? '#003366' : '#8B0000'; // Deep Blue for Squad 2, Royal Red for Squad 1/Default
+  const primaryColor = isSquad2 ? '#003366' : '#800000'; // Deep Blue for Squad 2, Maroon for Squad 1/Default
 
   // Create a temporary container for rendering the report
   const container = document.createElement('div');
@@ -549,7 +549,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <span className="font-bold text-lg leading-tight text-[#8B0000] dark:text-gold group-hover:text-royal-red transition-colors">براعم<br/>أرثوذكسية</span>
+              <span className="font-bold text-lg leading-tight text-[#8B0000] dark:text-gold group-hover:text-[#800000] transition-colors">براعم<br/>أرثوذكسية</span>
             </button>
             <div className="flex items-center gap-2">
               <button 
@@ -571,8 +571,8 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === item.id 
-                    ? 'bg-royal-red text-white shadow-lg' 
-                    : 'text-stone-500 dark:text-dark-muted hover:bg-stone-50 dark:hover:bg-dark-bg hover:text-royal-red dark:hover:text-gold'
+                    ? 'bg-[#800000] text-white shadow-lg' 
+                    : 'text-stone-500 dark:text-dark-muted hover:bg-stone-50 dark:hover:bg-dark-bg hover:text-[#800000] dark:hover:text-gold'
                 }`}
               >
                 <item.icon size={20} />
@@ -610,7 +610,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
           ) : (
             <button 
               onClick={() => setActiveTab('login')}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-royal-red dark:text-gold hover:bg-red-50 dark:hover:bg-dark-bg transition-colors font-bold border border-transparent hover:border-red-100 dark:hover:border-dark-border"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#800000] dark:text-gold hover:bg-red-50 dark:hover:bg-dark-bg transition-colors font-bold border border-transparent hover:border-red-100 dark:hover:border-dark-border"
             >
               <LogOut size={20} className="rotate-180" />
               <span>تسجيل الدخول</span>
@@ -769,7 +769,7 @@ const PracticalService = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-4 text-center md:text-right">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">تقييم الخدمة العملية</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">تقييم الخدمة العملية</h1>
           <p className="text-stone-500 italic">سجل التقييمات المجمعة للطلاب حسب اليوم</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
@@ -842,7 +842,7 @@ const PracticalService = () => {
                       </div>
                     </td>
                     <td className="p-4">
-                      <span className="px-3 py-1.5 bg-royal-red/10 text-royal-red rounded-lg text-sm font-bold border border-royal-red/20">
+                      <span className="px-3 py-1.5 bg-[#800000]/10 text-[#800000] rounded-lg text-sm font-bold border border-[#800000]/20">
                         {service.serviceType}
                       </span>
                     </td>
@@ -891,7 +891,7 @@ const PracticalService = () => {
               className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100 overflow-hidden"
             >
               <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
-                <h2 className="text-2xl font-bold text-royal-red">
+                <h2 className="text-2xl font-bold text-[#800000]">
                   {editingService ? 'تعديل التقييم' : 'إضافة تقييم جديد'}
                 </h2>
                 <button onClick={() => { setIsAdding(false); setEditingService(null); }} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
@@ -994,7 +994,7 @@ const LibraryPage = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 text-center md:text-right">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">مكتبة الموارد</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">مكتبة الموارد</h1>
           <p className="text-stone-500 italic">المناهج، الألحان، والروحيات لخدمة البراعم</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -1069,14 +1069,14 @@ const LibraryPage = () => {
             >
               <div className="p-8">
                 <div className="flex justify-between items-start mb-6">
-                  <span className="px-3 py-1 bg-royal-red/10 text-royal-red rounded-lg text-xs font-bold border border-royal-red/20">
+                  <span className="px-3 py-1 bg-[#800000]/10 text-[#800000] rounded-lg text-xs font-bold border border-[#800000]/20">
                     {resource.category === 'Menahej' ? 'منهج' : resource.category === 'Alhan' ? 'لحن' : 'روحي'}
                   </span>
                   <span className="text-stone-400 text-xs font-bold px-2 py-1 bg-stone-50 rounded-md">
                     {resource.squad}
                   </span>
                 </div>
-                <h3 className="text-2xl font-bold text-stone-900 mb-4 group-hover:text-royal-red transition-colors">
+                <h3 className="text-2xl font-bold text-stone-900 mb-4 group-hover:text-[#800000] transition-colors">
                   {resource.title}
                 </h3>
                 <div className="flex items-center justify-between pt-6 border-t border-stone-50">
@@ -1197,7 +1197,7 @@ const ResourceManager = () => {
     <div className="p-12 max-w-7xl mx-auto">
       <header className="mb-12 flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-royal-red mb-2">إدارة الموارد</h1>
+          <h1 className="text-4xl font-bold text-[#800000] mb-2">إدارة الموارد</h1>
           <p className="text-stone-500 italic">إضافة وتعديل المناهج والألحان</p>
         </div>
         <button onClick={() => setIsAdding(true)} className="btn-primary flex items-center gap-2">
@@ -1222,7 +1222,7 @@ const ResourceManager = () => {
               <tr key={res.id} className="border-b border-stone-50 hover:bg-off-white/30 transition-colors">
                 <td className="p-6 font-bold text-stone-900">{res.title}</td>
                 <td className="p-6">
-                  <span className="px-3 py-1 bg-royal-red/10 text-royal-red rounded-lg text-xs font-bold">
+                  <span className="px-3 py-1 bg-[#800000]/10 text-[#800000] rounded-lg text-xs font-bold">
                     {res.category === 'Menahej' ? 'منهج' : res.category === 'Alhan' ? 'لحن' : 'روحي'}
                   </span>
                 </td>
@@ -1268,7 +1268,7 @@ const ResourceManager = () => {
               className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100"
             >
               <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
-                <h2 className="text-2xl font-bold text-royal-red">إضافة مورد جديد</h2>
+                <h2 className="text-2xl font-bold text-[#800000]">إضافة مورد جديد</h2>
                 <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
@@ -1316,7 +1316,7 @@ const ResourceManager = () => {
               className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100"
             >
               <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
-                <h2 className="text-2xl font-bold text-royal-red">تعديل المورد</h2>
+                <h2 className="text-2xl font-bold text-[#800000]">تعديل المورد</h2>
                 <button onClick={() => setEditingResource(null)} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
                   <XCircle size={24} className="text-stone-400" />
                 </button>
@@ -1811,7 +1811,7 @@ const AttendanceTracker = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 md:mb-12">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">الحضور</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">الحضور</h1>
           <p className="text-stone-500 italic">تتبع الحضور اليومي للخدمة</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
@@ -1849,7 +1849,7 @@ const AttendanceTracker = () => {
               className="card-clean p-6 flex flex-col justify-between hover:border-gold transition-colors"
             >
               <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-royal-red/10 text-royal-red rounded-xl flex items-center justify-center font-bold text-lg border border-royal-red/20">
+                <div className="w-12 h-12 bg-[#800000]/10 text-[#800000] rounded-xl flex items-center justify-center font-bold text-lg border border-[#800000]/20">
                   {student.name[0]}
                 </div>
                 <div className="flex-1">
@@ -1934,14 +1934,14 @@ const AttendanceTracker = () => {
                 value={tempNote}
                 onChange={(e) => setTempNote(e.target.value)}
                 placeholder="اكتب الملاحظة هنا..."
-                className="w-full h-32 p-4 rounded-2xl border border-stone-200 focus:ring-2 focus:ring-royal-red focus:border-transparent resize-none mb-6 text-right"
+                className="w-full h-32 p-4 rounded-2xl border border-stone-200 focus:ring-2 focus:ring-[#800000] focus:border-transparent resize-none mb-6 text-right"
                 dir="rtl"
               />
 
               <div className="flex gap-4">
                 <button
                   onClick={() => toggleAttendance(notePrompt.studentId, notePrompt.status, tempNote)}
-                  className="flex-1 py-4 bg-royal-red text-white rounded-2xl font-bold hover:bg-royal-red/90 transition-all shadow-lg shadow-royal-red/20"
+                  className="flex-1 py-4 bg-[#800000] text-white rounded-2xl font-bold hover:bg-[#800000]/90 transition-all shadow-lg shadow-[#800000]/20"
                 >
                   حفظ
                 </button>
@@ -2174,7 +2174,7 @@ const TayoScoring = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 md:mb-12">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">تقييم طايو</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">تقييم طايو</h1>
           <p className="text-stone-500 italic">إدارة الدرجات والتقدم الروحي (طايو)</p>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
@@ -2219,7 +2219,7 @@ const TayoScoring = () => {
                 {i + 1}
               </div>
               <h4 className="font-bold text-stone-900 mb-1">{s.name}</h4>
-              <div className="text-xs font-bold text-royal-red">{s.totalScore} نقطة</div>
+              <div className="text-xs font-bold text-[#800000]">{s.totalScore} نقطة</div>
               <div className="mt-3 h-1.5 bg-stone-100 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gold" 
@@ -2235,7 +2235,7 @@ const TayoScoring = () => {
         <div className="lg:col-span-1">
           <div className="card-clean overflow-hidden">
             <div className="p-6 border-b border-stone-100 bg-off-white/50">
-              <h3 className="font-bold text-xl text-royal-red">اختر طالباً</h3>
+              <h3 className="font-bold text-xl text-[#800000]">اختر طالباً</h3>
             </div>
             <div className="max-h-[600px] overflow-y-auto p-4 space-y-2">
               {students.map(s => (
@@ -2494,7 +2494,7 @@ const AcceptanceEvaluation = () => {
         <div className="lg:col-span-1">
           <div className="card-clean p-4 space-y-2">
             {students.map(s => (
-              <button key={s.id} onClick={() => setSelectedStudent(s)} className={`w-full p-4 rounded-xl ${selectedStudent?.id === s.id ? 'bg-royal-red text-white' : 'hover:bg-off-white'}`}>
+              <button key={s.id} onClick={() => setSelectedStudent(s)} className={`w-full p-4 rounded-xl ${selectedStudent?.id === s.id ? 'bg-[#800000] text-white' : 'hover:bg-off-white'}`}>
                 {s.name}
               </button>
             ))}
@@ -2524,7 +2524,7 @@ const ViewOnlyBadge = () => {
   const { user } = useAuth();
   if (!user || user.role !== 'guest') return null;
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-royal-red dark:bg-gold text-white dark:text-stone-900 px-6 py-2 rounded-full shadow-lg font-bold flex items-center gap-2 animate-bounce transition-colors">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-[#800000] dark:bg-gold text-white dark:text-stone-900 px-6 py-2 rounded-full shadow-lg font-bold flex items-center gap-2 animate-bounce transition-colors">
       <AlertCircle size={18} />
       وضع العرض فقط
     </div>
@@ -2551,7 +2551,7 @@ const EventsPage = () => {
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-off-white">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-royal-red border-t-transparent rounded-full animate-spin" />
+        <div className="w-12 h-12 border-4 border-[#800000] border-t-transparent rounded-full animate-spin" />
         <p className="text-stone-500 font-bold">جاري تحميل الأحداث...</p>
       </div>
     </div>
@@ -2560,7 +2560,7 @@ const EventsPage = () => {
   return (
     <div className="p-12 max-w-7xl mx-auto min-h-screen">
       <header className="mb-16 text-center">
-        <h1 className="text-5xl font-serif font-bold text-royal-red mb-4">الأحداث والفعاليات</h1>
+        <h1 className="text-5xl font-serif font-bold text-[#800000] mb-4">الأحداث والفعاليات</h1>
         <p className="text-stone-500 italic text-lg">"كُلُّ شَيْءٍ يَعْمَلُ مَعاً لِلْخَيْرِ"</p>
       </header>
 
@@ -2583,7 +2583,7 @@ const EventsPage = () => {
               </div>
             </div>
 
-            <h3 className="text-2xl font-bold text-stone-900 mb-6 group-hover:text-royal-red transition-colors">{event.name}</h3>
+            <h3 className="text-2xl font-bold text-stone-900 mb-6 group-hover:text-[#800000] transition-colors">{event.name}</h3>
             
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-stone-600 bg-stone-50 p-3 rounded-xl">
@@ -2677,7 +2677,7 @@ function StaffPage() {
     <div className="p-12 max-w-7xl mx-auto min-h-screen">
       <header className="mb-16 text-center relative">
         <div className="absolute top-1/2 left-0 w-full h-px bg-stone-200 -z-10" />
-        <h1 className="text-5xl font-serif font-bold text-royal-red mb-4 bg-off-white px-8 inline-block relative">الهيكل التنظيمي</h1>
+        <h1 className="text-5xl font-serif font-bold text-[#800000] mb-4 bg-off-white px-8 inline-block relative">الهيكل التنظيمي</h1>
         <p className="text-stone-500 italic text-lg">"خُدَّامُ اللهِ فِي كُلِّ شَيْءٍ"</p>
         
         <div className="mt-12 flex flex-col md:flex-row items-center justify-center gap-4 max-w-2xl mx-auto">
@@ -2710,7 +2710,7 @@ function StaffPage() {
             key={member.id}
             whileHover={{ y: -10 }}
             className={`bg-white rounded-[2rem] p-8 flex flex-col items-center text-center shadow-sm hover:shadow-2xl transition-all border-2 group relative overflow-hidden mx-auto w-full max-w-2xl ${
-              member.role === 'القمص المسئول' ? 'border-royal-red scale-105' :
+              member.role === 'القمص المسئول' ? 'border-[#800000] scale-105' :
               member.role === 'القس المسئول' ? 'border-gold' :
               'border-stone-100'
             }`}
@@ -2739,10 +2739,10 @@ function StaffPage() {
               </div>
             </div>
             
-            <h3 className={`font-bold text-stone-900 mb-1 group-hover:text-royal-red transition-colors ${
+            <h3 className={`font-bold text-stone-900 mb-1 group-hover:text-[#800000] transition-colors ${
               member.role === 'القمص المسئول' ? 'text-4xl' : 'text-2xl'
             }`}>{member.name}</h3>
-            <p className="text-royal-red font-bold text-sm mb-2 tracking-wide uppercase">{member.role}</p>
+            <p className="text-[#800000] font-bold text-sm mb-2 tracking-wide uppercase">{member.role}</p>
             <p className="text-stone-500 italic text-sm mb-4">{member.responsibility}</p>
             
             <div className="flex items-center gap-1.5 text-gold mb-6">
@@ -2878,7 +2878,7 @@ const ReportsInbox = () => {
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="mb-8 md:mb-12 text-center md:text-right">
-        <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">صندوق التقارير</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">صندوق التقارير</h1>
         <p className="text-stone-500 italic">عرض وتحميل التقارير الإدارية المرفوعة</p>
       </header>
 
@@ -2887,7 +2887,7 @@ const ReportsInbox = () => {
           <div key={report.id} className="card-clean p-6 flex items-start gap-4 hover:shadow-md transition-shadow">
             <div className={`p-3 rounded-2xl ${
               report.type === 'attendance' ? 'bg-blue-50 text-blue-600' :
-              report.type === 'tayo' ? 'bg-gold/10 text-gold' : 'bg-red-50 text-royal-red'
+              report.type === 'tayo' ? 'bg-gold/10 text-gold' : 'bg-red-50 text-[#800000]'
             }`}>
               <FileText size={24} />
             </div>
@@ -2952,7 +2952,7 @@ const ReportsInbox = () => {
               className="bg-white w-full h-full rounded-2xl md:rounded-[2.5rem] overflow-hidden flex flex-col relative"
             >
               <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-white">
-                <h2 className="text-2xl font-bold text-royal-red">معاينة التقرير</h2>
+                <h2 className="text-2xl font-bold text-[#800000]">معاينة التقرير</h2>
                 <button 
                   onClick={() => setPreviewUrl(null)}
                   className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"
@@ -3098,7 +3098,7 @@ export const StaffManager = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 md:mb-12 gap-6">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">إدارة الهيكل التنظيمي</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">إدارة الهيكل التنظيمي</h1>
           <p className="text-stone-500 italic">إضافة وتعديل بيانات الخدام</p>
         </div>
         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
@@ -3206,7 +3206,7 @@ export const StaffManager = () => {
         {(isAdding || editingMember) && (
           <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-stone-100">
-              <h2 className="text-3xl font-serif font-bold text-royal-red mb-8 text-center">{editingMember ? 'تعديل بيانات العضو' : 'إضافة عضو جديد'}</h2>
+              <h2 className="text-3xl font-serif font-bold text-[#800000] mb-8 text-center">{editingMember ? 'تعديل بيانات العضو' : 'إضافة عضو جديد'}</h2>
               <form onSubmit={editingMember ? handleEditMember : handleAddMember} className="space-y-6">
                 <div className="flex flex-col items-center mb-6">
                   <div className="w-28 h-28 bg-stone-50 rounded-full border-4 border-dashed border-stone-200 flex items-center justify-center overflow-hidden relative group p-1">
@@ -3275,7 +3275,7 @@ export const StaffManager = () => {
                 </div>
 
                 <div className="flex gap-4 pt-6">
-                  <button type="submit" className="flex-1 btn-primary shadow-lg shadow-royal-red/20">حفظ البيانات</button>
+                  <button type="submit" className="flex-1 btn-primary shadow-lg shadow-[#800000]/20">حفظ البيانات</button>
                   <button type="button" onClick={() => { setIsAdding(false); setEditingMember(null); }} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-50 rounded-2xl transition-colors">إلغاء</button>
                 </div>
               </form>
@@ -3315,10 +3315,10 @@ const Gallery = () => {
 
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto min-h-screen">
-      <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-8 md:mb-12 text-center">المعرض</h1>
+      <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-8 md:mb-12 text-center">المعرض</h1>
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-royal-red"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#800000]"></div>
         </div>
       ) : images.length === 0 ? (
         <div className="text-center text-stone-500 py-12">لا توجد صور في المعرض حالياً</div>
@@ -3377,7 +3377,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
       </div>
 
       <div className="flex flex-col items-center gap-4 mb-8 md:mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-royal-red mt-10 text-center">مرحباً بك في خدمة البراعم</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mt-10 text-center">مرحباً بك في خدمة البراعم</h1>
         <button className="lg:hidden p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
           <Bell size={24} />
         </button>
@@ -3392,8 +3392,8 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
             onClick={() => setActiveTab(card.id)}
             className="bg-white dark:bg-dark-surface p-8 rounded-3xl shadow-md hover:shadow-xl transition-all border border-stone-100 dark:border-dark-border flex flex-col items-center gap-4 group"
           >
-            <div className="w-16 h-16 bg-royal-red/5 dark:bg-royal-red/10 rounded-2xl flex items-center justify-center group-hover:bg-royal-red/10 dark:group-hover:bg-royal-red/20 transition-colors">
-              <card.icon size={32} className="text-royal-red dark:text-gold" />
+            <div className="w-16 h-16 bg-[#800000]/5 dark:bg-[#800000]/10 rounded-2xl flex items-center justify-center group-hover:bg-[#800000]/10 dark:group-hover:bg-[#800000]/20 transition-colors">
+              <card.icon size={32} className="text-[#800000] dark:text-gold" />
             </div>
             <span className="text-xl font-bold text-stone-800 dark:text-dark-text">{card.label}</span>
           </motion.button>
@@ -3465,7 +3465,7 @@ export const EventsManager = () => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto min-h-screen">
       <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-4 text-center md:text-right">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">إدارة الأحداث</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">إدارة الأحداث</h1>
           <p className="text-stone-500 italic">تنظيم مواعيد الأنشطة والفعاليات</p>
         </div>
         <button onClick={() => setIsAdding(true)} className="btn-primary flex items-center justify-center gap-2 w-full md:w-auto">
@@ -3509,7 +3509,7 @@ export const EventsManager = () => {
         {isAdding && (
           <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-stone-100">
-              <h2 className="text-3xl font-serif font-bold text-royal-red mb-8 text-center">إضافة حدث جديد</h2>
+              <h2 className="text-3xl font-serif font-bold text-[#800000] mb-8 text-center">إضافة حدث جديد</h2>
               <form onSubmit={handleAddEvent} className="space-y-6">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-500 mr-1">اسم الحدث</label>
@@ -3528,7 +3528,7 @@ export const EventsManager = () => {
                   <input name="location" placeholder="مثلاً: مبنى الخدمات" required className="input-clean" />
                 </div>
                 <div className="flex gap-4 pt-6">
-                  <button type="submit" className="flex-1 btn-primary shadow-lg shadow-royal-red/20">حفظ الحدث</button>
+                  <button type="submit" className="flex-1 btn-primary shadow-lg shadow-[#800000]/20">حفظ الحدث</button>
                   <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-50 rounded-2xl transition-colors">إلغاء</button>
                 </div>
               </form>
@@ -3590,7 +3590,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
     { id: 'curricula', label: 'المناهج', icon: BookOpen },
   ];
 
-  if (loading) return <div className="p-8 animate-pulse text-royal-red font-bold">جاري تحميل لوحة التحكم...</div>;
+  if (loading) return <div className="p-8 animate-pulse text-[#800000] font-bold">جاري تحميل لوحة التحكم...</div>;
 
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
@@ -3633,7 +3633,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                   className="w-full max-w-[200px] md:max-w-[300px] h-auto mb-6 md:mb-8 drop-shadow-2xl"
                   referrerPolicy="no-referrer"
                 />
-                <h1 className="text-xl md:text-5xl font-bold text-royal-red mb-2">مرحباً بك من جديد</h1>
+                <h1 className="text-xl md:text-5xl font-bold text-[#800000] mb-2">مرحباً بك من جديد</h1>
                 <p className="text-stone-500 text-sm md:text-lg italic">لوحة تحكم إدارة خدمة البراعم</p>
               </motion.header>
 
@@ -3642,8 +3642,8 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
-                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-royal-red">
-                  <div className="w-12 h-12 bg-royal-red text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Users size={24} /></div>
+                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-[#800000]">
+                  <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Users size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي الطلاب</p>
                   <h3 className="text-4xl font-bold text-stone-900">{stats.students}</h3>
                 </motion.div>
@@ -3654,8 +3654,8 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                   <h3 className="text-4xl font-bold text-stone-900">{stats.attendanceToday}</h3>
                 </motion.div>
                 
-                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-royal-red">
-                  <div className="w-12 h-12 bg-royal-red text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><GraduationCap size={24} /></div>
+                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-[#800000]">
+                  <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><GraduationCap size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الطايو</p>
                   <h3 className="text-4xl font-bold text-stone-900 mb-4">{stats.totalTayo}</h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -4033,26 +4033,26 @@ const AppContent = () => {
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
       {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 left-0 right-0 h-16 bg-white dark:bg-dark-surface border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-6 z-30">
-        <div className="flex items-center gap-4">
+      <header className="lg:hidden sticky top-0 left-0 right-0 h-16 bg-[#4c0099] border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-4 z-30 shadow-md">
+        <div className="flex items-center gap-2">
           <button 
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-royal-red dark:text-gold transition-colors"
+            className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors"
           >
             <Menu size={24} />
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <img src={logo} alt="Logo" className="h-10 w-auto" referrerPolicy="no-referrer" />
-          <span className="font-bold text-royal-red">براعم</span>
+          <img src={logo} alt="Logo" className="h-8 w-auto" referrerPolicy="no-referrer" />
+          <span className="font-bold text-white">براعم</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Notification Bell - hidden on mobile, shown on desktop */}
-          <button className="hidden lg:block p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
+          {/* Notification Bell - visible on mobile */}
+          <button className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors">
             <Bell size={24} />
           </button>
           {user && (
-            <div className="w-10 h-10 bg-gold text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
+            <div className="w-8 h-8 bg-gold text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
               {user.displayName?.[0]}
             </div>
           )}
@@ -4285,7 +4285,7 @@ export default function App() {
     canAccess,
   };
 
-  if (loading || !firebaseReady) return <div className="min-h-screen flex items-center justify-center text-royal-red font-bold animate-pulse">جاري التحميل...</div>;
+  if (loading || !firebaseReady) return <div className="min-h-screen flex items-center justify-center text-[#800000] font-bold animate-pulse">جاري التحميل...</div>;
 
   return (
     <ErrorBoundary>

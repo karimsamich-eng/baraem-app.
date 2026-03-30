@@ -57,72 +57,69 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
   useEffect(() => {
     const fetchChartData = async () => {
       try {
-        const reportsQ = query(collection(db, 'reports'), where('studentId', '==', student.id));
-        const reportsSnap = await getDocs(reportsQ);
-        
-        if (reportsSnap.empty) {
-          setChartData([]);
-          return;
-        }
+        // Fetch all necessary data
+        const [attendanceSnap, gradesSnap, servicesSnap] = await Promise.all([
+          getDocs(query(collection(db, 'attendance'), where('studentId', '==', student.id))),
+          getDocs(query(collection(db, 'grades'), where('studentId', '==', student.id))),
+          getDocs(query(collection(db, 'practical_service'), where('studentId', '==', student.id)))
+        ]);
 
-        const reportsList: any[] = [];
-        reportsSnap.forEach(doc => reportsList.push({ id: doc.id, ...doc.data() }));
+        const attendance = attendanceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const grades = gradesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const services = servicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const currentYear = new Date().getFullYear();
-        const startYear = 2025;
-        const years = [];
-        for (let y = startYear; y <= Math.max(currentYear, startYear); y++) {
-          years.push(y);
-        }
-        
-        const yearlyData = years.map((year) => {
-          const yearReports = reportsList.filter(r => {
-            const dateStr = r.date || r.createdAt;
-            if (!dateStr) return false;
-            return new Date(dateStr).getFullYear() === year;
-          });
+        // Aggregate by date (Saturdays only)
+        const dataMap = new Map<string, any>();
 
-          if (yearReports.length === 0) {
-            return { 
-              name: year.toString(), 
+        const getSaturday = (dateStr: string) => {
+          const date = new Date(dateStr);
+          const dayOfWeek = date.getDay(); // 0 (Sun), 1 (Mon), ..., 6 (Sat)
+          const daysToSubtract = (dayOfWeek + 1) % 7;
+          const result = new Date(date);
+          result.setDate(date.getDate() - daysToSubtract);
+          return result.toISOString().split('T')[0];
+        };
+
+        const addData = (date: string, key: string, value: number) => {
+          const saturday = getSaturday(date);
+          if (!dataMap.has(saturday)) {
+            dataMap.set(saturday, { 
+              date: saturday, 
+              displayDate: `Sat ${new Date(saturday).getDate()}/${new Date(saturday).getMonth() + 1}`,
               attendance: 0, 
-              behavior: 0, 
               practical: 0, 
-              exam: 0 
-            };
+              interaction: 0, 
+              exams: 0 
+            });
           }
+          const current = dataMap.get(saturday);
+          if (key === 'attendance') {
+            current[key] = value;
+          } else {
+            current[key] += value; // Sum points for the same Saturday
+          }
+        };
 
-          let attTotal = 0, behTotal = 0, pracTotal = 0, examTotal = 0;
-          let attCount = 0, behCount = 0, pracCount = 0, examCount = 0;
-
-          yearReports.forEach(r => {
-            if (r.attendance !== undefined && r.attendance !== null) { attTotal += Number(r.attendance); attCount++; }
-            if (r.behavior !== undefined && r.behavior !== null) { behTotal += Number(r.behavior); behCount++; }
-            if (r.practical !== undefined && r.practical !== null) { pracTotal += Number(r.practical); pracCount++; }
-            if (r.exam !== undefined && r.exam !== null) { examTotal += Number(r.exam); examCount++; }
-          });
-
-          return { 
-            name: year.toString(), 
-            attendance: attCount > 0 ? Math.round(attTotal / attCount) : 0, 
-            behavior: behCount > 0 ? Math.round(behTotal / behCount) : 0, 
-            practical: pracCount > 0 ? Math.round(pracTotal / pracCount) : 0, 
-            exam: examCount > 0 ? Math.round(examTotal / examCount) : 0 
-          };
+        attendance.forEach((a: any) => addData(a.date, 'attendance', (a.status === 'present' || a.status === 'late') ? 100 : 0));
+        services.forEach((s: any) => {
+          addData(s.date, 'practical', Number(s.points || 0));
+          addData(s.date, 'interaction', Number(s.interactionPoints || 0));
         });
-        
-        setChartData(yearlyData);
+        grades.forEach((g: any) => addData(g.date, 'exams', Number(g.score || 0)));
+
+        const sortedData = Array.from(dataMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setChartData(sortedData);
         
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'student_profile_data');
+        handleFirestoreError(error, OperationType.LIST, 'student_analytics_data');
       }
     };
     fetchChartData();
   }, [student.id]);
 
   const handleDownloadPDF = async () => {
+    console.log('Download Triggered for:', student.name);
     const element = document.getElementById('pdf-content');
-    console.log('PDF element:', element);
     if (!element) {
       console.error('PDF element not found');
       return;
@@ -135,7 +132,13 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
         scale: 2,
         useCORS: true,
         logging: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          const head = clonedDoc.getElementsByTagName('head')[0];
+          if (head) {
+            head.innerHTML = '';
+          }
+        }
       });
       console.log('html2canvas finished');
       const imgData = canvas.toDataURL('image/png');
@@ -145,8 +148,20 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`ملف_الطالب_${student.name.replace(/\s+/g, '_')}.pdf`);
-      console.log('PDF saved');
+      
+      // Blob approach
+      const pdfBlob = pdf.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `${student.name.replace(/\s+/g, '_')}_Report.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      URL.revokeObjectURL(pdfUrl);
+      console.log('PDF downloaded successfully');
     } catch (error) {
       console.error('Error generating PDF:', error);
     } finally {
@@ -154,19 +169,23 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
     }
   };
 
+  const getButtonText = () => {
+    return isDownloading ? 'جاري التحميل...' : 'تحميل الملف';
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-dark-surface rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-y-auto p-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-royal-red">{student.name}</h2>
+          <h2 className="text-2xl font-bold text-[#800000]">{student.name}</h2>
           <div className="flex gap-2">
             <button 
               onClick={handleDownloadPDF} 
               disabled={isDownloading}
-              className="flex items-center gap-2 px-4 py-2 bg-royal-red text-white rounded-xl hover:bg-royal-red/90 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-[#800000] text-white rounded-xl hover:bg-[#800000]/90 transition-colors disabled:opacity-50"
             >
               {isDownloading ? <Loader2 className="animate-spin" size={20} /> : <Download size={20} />}
-              <span>تحميل الملف</span>
+              <span>{getButtonText()}</span>
             </button>
             <button onClick={onClose} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"><X /></button>
           </div>
@@ -195,16 +214,16 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="name" stroke="#6b7280" tick={{ fill: '#6b7280' }} />
+                      <XAxis dataKey="displayDate" stroke="#6b7280" tick={{ fill: '#6b7280' }} />
                       <YAxis domain={[0, 100]} stroke="#6b7280" tick={{ fill: '#6b7280' }} />
                       <Tooltip 
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       />
                       <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                      <Line type="monotone" dataKey="attendance" name="الحضور" stroke="#D4AF37" strokeWidth={3} activeDot={{ r: 8 }} />
-                      <Line type="monotone" dataKey="behavior" name="السلوك" stroke="#8B0000" strokeWidth={3} />
-                      <Line type="monotone" dataKey="practical" name="الخدمة العملية" stroke="#F59E0B" strokeWidth={3} />
-                      <Line type="monotone" dataKey="exam" name="الامتحانات" stroke="#10B981" strokeWidth={3} />
+                      <Line type="monotone" dataKey="attendance" name="الحضور" stroke="#800000" strokeWidth={3} />
+                      <Line type="monotone" dataKey="practical" name="طايو الخدمة" stroke="#FFD700" strokeWidth={3} />
+                      <Line type="monotone" dataKey="interaction" name="طايو التفاعل" stroke="#F59E0B" strokeWidth={3} />
+                      <Line type="monotone" dataKey="exams" name="الامتحانات" stroke="#10B981" strokeWidth={3} />
                     </LineChart>
                   </ResponsiveContainer>
                 )}

@@ -42,12 +42,12 @@ export const CurriculumManager = () => {
     }
   };
 
-  if (loading) return <div className="p-12 animate-pulse text-royal-red font-bold">جاري تحميل المناهج...</div>;
+  if (loading) return <div className="p-12 animate-pulse text-[#800000] font-bold">جاري تحميل المناهج...</div>;
 
   return (
     <div className="p-12 max-w-4xl mx-auto">
       <header className="mb-12">
-        <h1 className="text-4xl font-bold text-royal-red mb-2">إدارة المناهج</h1>
+        <h1 className="text-4xl font-bold text-[#800000] mb-2">إدارة المناهج</h1>
         <p className="text-stone-500 italic">تحديث روابط المناهج الدراسية للفرق</p>
       </header>
 
@@ -161,19 +161,19 @@ export const SliderManager = () => {
     });
   };
 
-  if (loading) return <div className="p-12 animate-pulse text-royal-red font-bold">جاري تحميل الصور...</div>;
+  if (loading) return <div className="p-12 animate-pulse text-[#800000] font-bold">جاري تحميل الصور...</div>;
 
   return (
     <div className="p-12 max-w-6xl mx-auto">
       <header className="mb-12">
-        <h1 className="text-4xl font-bold text-royal-red mb-2">إدارة الصور</h1>
+        <h1 className="text-4xl font-bold text-[#800000] mb-2">إدارة الصور</h1>
         <p className="text-stone-500 italic">إدارة صور شريط العرض في الصفحة الرئيسية</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1">
           <div className="card-clean p-8 sticky top-8">
-            <h3 className="text-xl font-bold text-royal-red mb-6">إضافة صورة جديدة</h3>
+            <h3 className="text-xl font-bold text-[#800000] mb-6">إضافة صورة جديدة</h3>
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">صورة العرض</label>

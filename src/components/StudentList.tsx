@@ -127,7 +127,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-4 text-center md:text-right">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-2">الطلاب</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">الطلاب</h1>
           <p className="text-stone-500 italic">إدارة سجلات ومعلومات الطلاب</p>
         </div>
         {user && (user.role === 'admin' || user.role === 'coordinator') && (
@@ -144,7 +144,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
       {loading && (
         <div className="w-full bg-stone-200 rounded-full h-1.5 mb-6 overflow-hidden">
           <motion.div 
-            className="bg-royal-red h-1.5 rounded-full" 
+            className="bg-[#800000] h-1.5 rounded-full" 
             initial={{ width: '0%' }}
             animate={{ width: '100%' }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -170,7 +170,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
             className="w-full pr-12 pl-4 py-3 bg-white dark:bg-dark-surface rounded-2xl border border-stone-200 dark:border-dark-border focus:ring-2 focus:ring-gold outline-none transition-all shadow-sm dark:text-dark-text"
           />
         </div>
-        <button className="p-3 bg-white dark:bg-dark-surface rounded-2xl text-stone-500 dark:text-dark-muted hover:text-royal-red dark:hover:text-gold transition-colors border border-stone-200 dark:border-dark-border shadow-sm flex items-center justify-center">
+        <button className="p-3 bg-white dark:bg-dark-surface rounded-2xl text-stone-500 dark:text-dark-muted hover:text-[#800000] dark:hover:text-gold transition-colors border border-stone-200 dark:border-dark-border shadow-sm flex items-center justify-center">
           <Filter size={20} />
         </button>
       </div>
@@ -199,7 +199,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
                   <button onClick={() => setSelectedStudentProfile(student)} className="flex-1 btn-secondary text-sm py-2">عرض الملف</button>
                 )}
                 {user && (user.role === 'admin' || user.role === 'coordinator') && (
-                  <button onClick={() => handleDelete(student.id)} className="p-2 text-royal-red hover:bg-red-50 hover:text-red-700 rounded-full transition-colors"><Trash2 size={18} /></button>
+                  <button onClick={() => handleDelete(student.id)} className="p-2 text-[#800000] hover:bg-red-50 hover:text-red-700 rounded-full transition-colors"><Trash2 size={18} /></button>
                 )}
               </div>
             </div>

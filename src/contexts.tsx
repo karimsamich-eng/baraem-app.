@@ -44,6 +44,8 @@ export interface BrandingContextType {
   logoUrl: string | null;
   logoLoading: boolean;
   refreshLogo: () => void;
+  activeIcon: string | null;
+  setActiveIcon: (icon: string | null) => void;
 }
 export const BrandingContext = createContext<BrandingContextType | null>(null);
 export const useBranding = () => {
@@ -56,6 +58,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoLoading, setLogoLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeIcon, setActiveIcon] = useState<string | null>(null);
 
   const refreshLogo = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -86,7 +89,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [refreshTrigger]);
 
   return (
-    <BrandingContext.Provider value={{ logoUrl, logoLoading, refreshLogo }}>
+    <BrandingContext.Provider value={{ logoUrl, logoLoading, refreshLogo, activeIcon, setActiveIcon }}>
       {children}
     </BrandingContext.Provider>
   );

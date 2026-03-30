@@ -12,6 +12,7 @@ import {
 import { signInAnonymously } from 'firebase/auth';
 import { HeroSlider } from './components/HeroSlider';
 import { ServiceAnthem } from './components/ServiceAnthem';
+import { TearDropLogo } from './components/TearDropLogo';
 import { MonthlyExamCenter } from './components/MonthlyExamCenter';
 import { StudentProfileNew } from './components/StudentProfile';
 import { StudentListNew } from './components/StudentList';
@@ -3973,12 +3974,22 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
 
 const AppContent = () => {
   const { user, loading, canAccess, logout } = useAuth();
-  const { logoUrl, logoLoading } = useBranding();
+  const { logoUrl, logoLoading, setActiveIcon } = useBranding();
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('hub');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    // Update active icon based on tab
+    if (activeTab === 'students') setActiveIcon('students');
+    else if (activeTab === 'gallery') setActiveIcon('gallery');
+    else if (activeTab === 'anthem-mgmt') setActiveIcon('anthem');
+    else if (activeTab === 'slider-mgmt') setActiveIcon('slider');
+    else if (activeTab === 'resource-mgmt' || activeTab === 'library') setActiveIcon('curriculum');
+    else setActiveIcon(null);
+  }, [activeTab, setActiveIcon]);
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -4058,60 +4069,65 @@ const AppContent = () => {
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
       {/* Header */}
-      <header className="sticky top-0 left-0 right-0 lg:right-72 h-16 bg-[#800000] border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-4 z-30 shadow-md">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-gold transition-colors"
-          >
-            <Menu size={24} />
-          </button>
-          <button 
-            onClick={() => setActiveTab('hub')}
-            className="flex items-center gap-2 group"
-          >
-            {logoLoading ? (
-              <div className="h-10 w-10 bg-white/20 animate-pulse rounded-full" />
-            ) : logoUrl ? (
-              <img 
-                src={logoUrl} 
-                alt="" 
-                className="h-10 w-10 object-contain rounded-full bg-transparent" 
-                referrerPolicy="no-referrer" 
-              />
-            ) : (
-              <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center text-gold">
-                <ImageIcon size={20} />
-              </div>
-            )}
-            <span className="font-bold text-white hidden sm:inline">براعم أرثوذكسية</span>
-          </button>
+      <header className="sticky top-0 left-0 right-0 lg:right-72 z-30 h-24 pointer-events-none">
+        {/* SVG Background Arc */}
+        <div className="absolute inset-0 -z-10 pointer-events-auto">
+          <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" className="drop-shadow-lg">
+            <path d="M 0 0 H 100 V 60 Q 50 100 0 60 Z" fill="#800000" />
+          </svg>
         </div>
 
-        <div className="flex items-center gap-4">
-          {user && (
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex flex-col items-end">
-                <span className="text-white font-bold text-sm">مرحبًا {user.displayName}</span>
-                <span className="text-gold text-[10px] font-medium">
-                  {(user.role === 'admin' || user.role === 'coordinator') ? 'المنسق' : 
-                   user.role === 'attendance' ? 'خادم الحضور' :
-                   user.role === 'tayo' ? 'خادم الطايو' : 
-                   user.role === 'practical' ? 'خادم الخدمة العملية' : 'زائر'}
-                </span>
+        <div className="relative h-16 flex items-center justify-between px-4 pointer-events-auto">
+          {/* Left: Menu & Title */}
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-gold transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            
+            <button 
+              onClick={() => setActiveTab('hub')}
+              className="flex items-center gap-2 group"
+            >
+              <span className="font-bold text-white hidden sm:inline">براعم أرثوذكسية</span>
+            </button>
+          </div>
+
+          {/* Center: Dynamic Logo (Nested in Arc) */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-12 md:top-14">
+            <button onClick={() => setActiveTab('hub')} className="relative">
+              <TearDropLogo />
+            </button>
+          </div>
+
+          {/* Right: User Info */}
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex flex-col items-end">
+                  <span className="text-white font-bold text-sm">مرحبًا {user.displayName}</span>
+                  <span className="text-gold text-[10px] font-medium">
+                    {(user.role === 'admin' || user.role === 'coordinator') ? 'المنسق' : 
+                     user.role === 'attendance' ? 'خادم الحضور' :
+                     user.role === 'tayo' ? 'خادم الطايو' : 
+                     user.role === 'practical' ? 'خادم الخدمة العملية' : 'زائر'}
+                  </span>
+                </div>
+                <div className="w-10 h-10 bg-gold text-[#800000] rounded-full flex items-center justify-center font-bold shadow-sm">
+                  {user.displayName?.[0]}
+                </div>
+                <button 
+                  onClick={() => logout()}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gold/10 hover:bg-gold/20 text-gold rounded-lg transition-all border border-gold/20"
+                >
+                  <LogOut size={18} />
+                  <span className="font-bold text-sm hidden sm:inline">خروج</span>
+                </button>
               </div>
-              <div className="w-10 h-10 bg-gold text-[#800000] rounded-full flex items-center justify-center font-bold shadow-sm">
-                {user.displayName?.[0]}
-              </div>
-              <button 
-                onClick={() => logout()}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gold/10 hover:bg-gold/20 text-gold rounded-lg transition-all border border-gold/20"
-              >
-                <LogOut size={18} />
-                <span className="font-bold text-sm hidden sm:inline">تسجيل الخروج</span>
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

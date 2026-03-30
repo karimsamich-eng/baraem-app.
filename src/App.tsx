@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-const logo = import.meta.env.BASE_URL + 'logo.jpg';
+const logo = '/logo.png';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
@@ -911,20 +911,7 @@ const PracticalService = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">نوع الخدمة</label>
-                  <select name="serviceType" defaultValue={editingService?.serviceType || ''} required className="input-clean">
-                    <option value="">اختر النوع...</option>
-                    {(user?.role === 'practical' || user?.role === 'admin' || user?.role === 'coordinator' || user?.role === 'tayo') && (
-                      <option value="خدمة عملية">خدمة عملية (20 نقطة)</option>
-                    )}
-                    {(user?.role === 'admin' || user?.role === 'coordinator') && (
-                      <>
-                        <option value="نظافة">نظافة</option>
-                        <option value="ترتيب">ترتيب</option>
-                        <option value="مساعدة">مساعدة</option>
-                        <option value="أخرى">أخرى</option>
-                      </>
-                    )}
-                  </select>
+                  <input name="serviceType" type="text" value="خدمة عملية" readOnly className="input-clean bg-stone-50" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">ملاحظات (الوصف)</label>
@@ -933,7 +920,7 @@ const PracticalService = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التقييم (النقاط)</label>
-                    <input name="points" type="number" min="0" required className="input-clean bg-stone-50" readOnly={user?.role === 'practical' || user?.role === 'tayo'} defaultValue={editingService?.points || ((user?.role === 'practical' || user?.role === 'tayo') ? 20 : 10)} />
+                    <input name="points" type="number" min="20" max="20" required className="input-clean bg-stone-50" readOnly defaultValue={20} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التاريخ</label>
@@ -1219,8 +1206,8 @@ const ResourceManager = () => {
         </button>
       </header>
 
-      <div className="card-clean overflow-hidden">
-        <table className="w-full text-right border-collapse">
+      <div className="card-clean overflow-x-auto">
+        <table className="w-full text-right border-collapse min-w-[600px]">
           <thead>
             <tr className="bg-off-white border-b border-stone-100">
               <th className="p-6 font-bold text-stone-600">العنوان</th>
@@ -2292,8 +2279,8 @@ const TayoScoring = () => {
                 )}
               </div>
 
-              <div className="card-clean overflow-hidden">
-                <table className="w-full text-right">
+              <div className="card-clean overflow-x-auto">
+                <table className="w-full text-right min-w-[600px]">
                   <thead>
                     <tr className="bg-stone-50 text-stone-500 text-xs uppercase tracking-widest font-bold border-b border-stone-100">
                       <th className="px-8 py-4">النشاط</th>

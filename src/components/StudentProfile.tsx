@@ -122,16 +122,22 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
 
   const handleDownloadPDF = async () => {
     const element = document.getElementById('pdf-content');
-    if (!element) return;
+    console.log('PDF element:', element);
+    if (!element) {
+      console.error('PDF element not found');
+      return;
+    }
     
     setIsDownloading(true);
     try {
+      console.log('Starting html2canvas...');
       const canvas = await html2canvas(element, { 
         scale: 2,
         useCORS: true,
-        logging: false,
+        logging: true,
         backgroundColor: '#ffffff'
       });
+      console.log('html2canvas finished');
       const imgData = canvas.toDataURL('image/png');
       
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -140,6 +146,7 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`ملف_الطالب_${student.name.replace(/\s+/g, '_')}.pdf`);
+      console.log('PDF saved');
     } catch (error) {
       console.error('Error generating PDF:', error);
     } finally {
@@ -181,7 +188,7 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
             {/* Left Column: Performance Chart */}
             <div className="card-clean p-6 h-full flex flex-col">
               <h3 className="font-bold text-lg mb-4 text-stone-800">الأداء خلال 5 سنوات</h3>
-              <div className="flex-1 min-h-[300px] w-full flex items-center justify-center">
+              <div className="h-[300px] w-full flex items-center justify-center">
                 {chartData.length === 0 ? (
                   <p className="text-stone-500 font-bold text-lg">لا توجد بيانات مسجلة بعد لهذا الطالب</p>
                 ) : (

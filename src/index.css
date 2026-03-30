@@ -13,7 +13,7 @@
 
 @layer base {
   body {
-    @apply font-sans bg-off-white text-stone-900 transition-colors duration-300;
+    @apply font-sans bg-off-white text-stone-900 transition-colors duration-300 overflow-x-hidden;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     position: relative;

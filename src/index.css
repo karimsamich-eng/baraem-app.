@@ -12,6 +12,7 @@
 }
 
 @layer base {
+  * { box-sizing: border-box; }
   body {
     @apply font-sans bg-off-white text-stone-900 transition-colors duration-300 overflow-x-hidden;
     overscroll-behavior-y: none;

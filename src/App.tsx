@@ -3376,7 +3376,12 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
         <HeroSlider />
       </div>
 
-      <h1 className="text-3xl md:text-4xl font-bold text-royal-red mb-8 md:mb-12 text-center">مرحباً بك في خدمة البراعم</h1>
+      <div className="flex flex-col items-center gap-4 mb-8 md:mb-12">
+        <h1 className="text-3xl md:text-4xl font-bold text-royal-red mt-10 text-center">مرحباً بك في خدمة البراعم</h1>
+        <button className="lg:hidden p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
+          <Bell size={24} />
+        </button>
+      </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
         {visibleCards.map(card => (
@@ -4023,7 +4028,7 @@ const AppContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-off-white dark:bg-dark-bg flex overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg w-full overflow-x-hidden transition-colors duration-300">
       <ViewOnlyBadge />
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
@@ -4042,8 +4047,8 @@ const AppContent = () => {
           <span className="font-bold text-royal-red">براعم</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Notification Bell - ensure it's easily clickable */}
-          <button className="p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
+          {/* Notification Bell - hidden on mobile, shown on desktop */}
+          <button className="hidden lg:block p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
             <Bell size={24} />
           </button>
           {user && (

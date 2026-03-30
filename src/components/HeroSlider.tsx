@@ -44,7 +44,7 @@ export const HeroSlider = () => {
   const currentImage = images[currentIndex];
 
   return (
-    <div className="relative h-[250px] md:h-[400px] w-full overflow-hidden rounded-3xl shadow-2xl">
+    <div className="relative h-64 md:h-[40vh] w-full overflow-hidden rounded-3xl shadow-2xl">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentImage.id}
@@ -60,10 +60,10 @@ export const HeroSlider = () => {
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-black/40" />
           {currentImage.caption && (
-            <div className="absolute bottom-6 md:bottom-8 right-6 md:right-8 text-white">
-              <h2 className="text-lg md:text-3xl font-bold">{currentImage.caption}</h2>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+              <h2 className="text-lg md:text-3xl font-bold text-white">{currentImage.caption}</h2>
             </div>
           )}
         </motion.div>

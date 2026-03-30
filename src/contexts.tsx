@@ -62,7 +62,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'settings', 'branding'), (docSnap) => {
+    const unsub = onSnapshot(doc(db, 'settings', 'site_settings'), (docSnap) => {
       if (docSnap.exists()) {
         const url = docSnap.data().logoUrl;
         if (url) {
@@ -74,7 +74,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       setLogoLoading(false);
     }, (error) => {
-      console.error("Error fetching logo:", error);
+      console.error("CRITICAL: Error fetching logo from site_settings:", error);
       setLogoLoading(false);
     });
 

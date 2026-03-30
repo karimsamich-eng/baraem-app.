@@ -258,7 +258,7 @@ export const SettingsManager = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'branding'), (doc) => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'site_settings'), (doc) => {
       if (doc.exists()) {
         setSettings({ id: doc.id, ...doc.data() } as Settings);
       }
@@ -278,18 +278,46 @@ export const SettingsManager = () => {
     }
   };
 
+  const handleExternalUrlSave = async (url: string) => {
+    if (!url.trim()) return;
+    try {
+      await setDoc(doc(db, 'settings', 'site_settings'), {
+        logoUrl: url.trim(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || ''
+      });
+      refreshLogo();
+      addToast('تم تحديث الشعار بنجاح', 'success');
+    } catch (error) {
+      console.error("External URL save failed:", error);
+      addToast('فشل تحديث الشعار', 'error');
+    }
+  };
+
   const handleSaveLogo = async (processedImage: string) => {
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+    );
+
     try {
       // Convert base64 to blob
       const res = await fetch(processedImage);
       const blob = await res.blob();
       
-      // Upload to storage
+      // Upload to storage with timeout
       const storageRef = ref(storage, 'branding/logo.png');
-      await uploadBytes(storageRef, blob);
+      
+      console.log("Starting upload to Firebase Storage...");
+      await Promise.race([
+        uploadBytes(storageRef, blob),
+        timeout
+      ]);
+      
+      console.log("Upload successful, getting download URL...");
       const downloadUrl = await getDownloadURL(storageRef);
 
-      await setDoc(doc(db, 'settings', 'branding'), {
+      console.log("Saving to Firestore site_settings...");
+      await setDoc(doc(db, 'settings', 'site_settings'), {
         logoUrl: downloadUrl,
         updatedAt: new Date().toISOString(),
         updatedBy: user?.username || ''
@@ -299,9 +327,13 @@ export const SettingsManager = () => {
       addToast('تم تحديث الشعار بنجاح', 'success');
       setIsEditorOpen(false);
       setSelectedImage(null);
-    } catch (error) {
-      console.error("Logo save failed:", error);
-      addToast('فشل تحديث الشعار. يرجى المحاولة مرة أخرى.', 'error');
+    } catch (error: any) {
+      console.error("CRITICAL: Logo save failed:", error);
+      if (error.message === 'TIMEOUT') {
+        addToast('انتهت مهلة الرفع (10 ثوانٍ). يرجى التحقق من اتصالك بالإنترنت.', 'error');
+      } else {
+        addToast(`فشل تحديث الشعار: ${error.message || 'خطأ غير معروف'}`, 'error');
+      }
       // Re-throw to let the modal know it failed
       throw error;
     }
@@ -322,7 +354,7 @@ export const SettingsManager = () => {
               console.warn("Storage object not found or already deleted");
             }
           }
-          await deleteDoc(doc(db, 'settings', 'branding'));
+          await deleteDoc(doc(db, 'settings', 'site_settings'));
           refreshLogo();
           addToast('تم حذف الشعار بنجاح', 'success');
         } catch (error) {
@@ -375,24 +407,52 @@ export const SettingsManager = () => {
               )}
             </div>
 
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-6">
               <p className="text-sm text-stone-600 leading-relaxed">
                 هذا الشعار سيظهر في الهيدر، صفحة تسجيل الدخول، والتقارير المطبوعة. يفضل استخدام صورة بخلفية شفافة (PNG) وبأبعاد مربعة.
               </p>
-              <div className="flex gap-4">
-                <label className="btn-primary flex items-center gap-2 cursor-pointer">
-                  <Upload size={18} />
-                  <span>{settings?.logoUrl ? 'تغيير الشعار' : 'رفع شعار جديد'}</span>
-                  <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                </label>
-                {settings?.logoUrl && (
-                  <button 
-                    onClick={handleDeleteLogo}
-                    className="px-6 py-2.5 rounded-xl font-bold text-red-600 hover:bg-red-50 transition-colors border border-red-100"
-                  >
-                    حذف الحالي
-                  </button>
-                )}
+              
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <label className="btn-primary flex items-center gap-2 cursor-pointer">
+                    <Upload size={18} />
+                    <span>{settings?.logoUrl ? 'تغيير الشعار' : 'رفع شعار جديد'}</span>
+                    <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                  </label>
+                  {settings?.logoUrl && (
+                    <button 
+                      onClick={handleDeleteLogo}
+                      className="px-6 py-2.5 rounded-xl font-bold text-red-600 hover:bg-red-50 transition-colors border border-red-100"
+                    >
+                      حذف الحالي
+                    </button>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-stone-100">
+                  <label className="block text-sm font-bold text-stone-700 mb-2">رابط شعار خارجي (حل بديل)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="url" 
+                      placeholder="https://example.com/logo.png"
+                      className="flex-1 px-4 py-2 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-[#800000] outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleExternalUrlSave((e.target as HTMLInputElement).value);
+                        }
+                      }}
+                    />
+                    <button 
+                      onClick={(e) => {
+                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                        handleExternalUrlSave(input.value);
+                      }}
+                      className="px-4 py-2 bg-stone-800 text-white rounded-xl text-sm font-bold hover:bg-stone-900 transition-colors"
+                    >
+                      حفظ الرابط
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, getDocFromServer, FirestoreError, enableMultiTabIndexedDbPersistence, increment } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+
 // Firebase configuration hardcoded for GitHub Pages deployment
 const firebaseConfig = {
   "projectId": "t-dragon-425607-b7",
@@ -20,6 +22,7 @@ const { measurementId, ...safeConfig } = firebaseConfig as any;
 const app = initializeApp(safeConfig);
 export const db = getFirestore(app, safeConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 // Enable offline persistence
 // enableMultiTabIndexedDbPersistence(db).catch((err) => {
@@ -77,6 +80,7 @@ async function testConnection() {
 testConnection();
 
 export { 
-  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, increment
+  collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, increment,
+  ref, uploadBytes, getDownloadURL, deleteObject
 };
 export type { FirestoreError };

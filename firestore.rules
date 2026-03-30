@@ -137,6 +137,11 @@ service cloud.firestore {
       allow write: if isCoordinator();
     }
 
+    match /settings/{settingId} {
+      allow read: if true; // Publicly readable for the logo
+      allow write: if isCoordinator();
+    }
+
     // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;

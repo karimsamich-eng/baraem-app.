@@ -204,6 +204,18 @@
         "lastUpdated": { "type": "string", "format": "date-time" }
       },
       "required": ["totalStudents", "activeStudents", "attendanceRate", "lastUpdated"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Application-wide settings (e.g., logo URL).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the settings record (e.g., branding)." },
+        "logoUrl": { "type": "string", "description": "URL of the application logo." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
+      },
+      "required": ["logoUrl", "updatedAt", "updatedBy"]
     }
   },
   "firestore": {
@@ -220,6 +232,7 @@
     "/events": { "schema": "Event", "description": "Collection of church events." },
     "/exam_links": { "schema": "ExamLink", "description": "Collection of monthly exam links." },
     "/acceptance_evaluations": { "schema": "AcceptanceEvaluation", "description": "Collection of acceptance evaluations." },
-    "/dashboard_stats": { "schema": "DashboardStats", "description": "Collection of dashboard statistics." }
+    "/dashboard_stats": { "schema": "DashboardStats", "description": "Collection of dashboard statistics." },
+    "/settings": { "schema": "Settings", "description": "Collection of application-wide settings." }
   }
 }

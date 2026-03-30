@@ -14,7 +14,7 @@ import { HeroSlider } from './components/HeroSlider';
 import { MonthlyExamCenter } from './components/MonthlyExamCenter';
 import { StudentProfileNew } from './components/StudentProfile';
 import { StudentListNew } from './components/StudentList';
-import { CurriculumManager, SliderManager } from './components/Managers';
+import { CurriculumManager, SliderManager, SettingsManager } from './components/Managers';
 import { 
   Users, Calendar, GraduationCap, LayoutDashboard, LogOut, Plus, Search, Trophy,
   CheckCircle2, XCircle, Clock, MoreVertical, Edit2, Trash2, ChevronRight, 
@@ -375,13 +375,12 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
 // --- Components ---
 
-const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
+const AuthScreen = ({ setActiveTab, logoUrl, logoLoading }: { setActiveTab: (t: string) => void, logoUrl: string | null, logoLoading: boolean }) => {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -409,13 +408,17 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-dark-surface p-6 md:p-10 mx-4 md:mx-0 rounded-3xl shadow-xl max-w-md w-full text-center border border-stone-100 dark:border-dark-border relative z-10"
       >
-        <div className="mb-8 inline-flex items-center justify-center w-40 h-auto bg-white dark:bg-dark-bg rounded-2xl shadow-lg border border-stone-100 dark:border-dark-border p-4">
-          <img 
-            src={logo} 
-            alt="Baraem Logo" 
-            className="w-full h-auto object-contain"
-            referrerPolicy="no-referrer"
-          />
+        <div className="mb-8 inline-flex items-center justify-center w-32 h-32 bg-white dark:bg-dark-bg rounded-full shadow-lg border border-stone-100 dark:border-dark-border p-2 overflow-hidden">
+          {logoLoading ? (
+            <div className="w-full h-full bg-[#800000]/10 animate-pulse rounded-full" />
+          ) : (
+            <img 
+              src={logoUrl || logo} 
+              alt="Baraem Logo" 
+              className="w-full h-full object-contain rounded-full bg-transparent"
+              referrerPolicy="no-referrer"
+            />
+          )}
         </div>
         <h1 className="text-3xl font-bold mb-2 text-royal-red dark:text-gold">خدمة البراعم</h1>
         <p className="text-stone-500 dark:text-dark-muted mb-8 font-serif italic"> مت 19 : 14"دعوا الأولاد يأتون إليّ"</p>
@@ -498,7 +501,7 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
   );
 };
 
-const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: string, setActiveTab: (t: string) => void, isOpen: boolean, setIsOpen: (o: boolean) => void }) => {
+const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, logoUrl, logoLoading }: { activeTab: string, setActiveTab: (t: string) => void, isOpen: boolean, setIsOpen: (o: boolean) => void, logoUrl: string | null, logoLoading: boolean }) => {
   const { user, logout, canAccess } = useAuth();
   
   const menuItems = [
@@ -512,6 +515,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
     { id: 'exam_center', label: 'مركز الامتحانات', icon: BookOpen },
     { id: 'staff', label: 'الهيكل التنظيمي', icon: Users },
     { id: 'events', label: 'الأحداث القادمة', icon: Calendar },
+    { id: 'settings-mgmt', label: 'إعدادات الهوية', icon: UserCog },
   ].filter(item => canAccess(item.id));
 
   return (
@@ -541,13 +545,17 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
               }}
               className="flex items-center gap-3 group transition-all text-right"
             >
-              <div className="w-14 h-auto rounded-xl overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all">
-                <img 
-                  src={logo} 
-                  alt="Baraem Orthodox Logo" 
-                  className="w-full h-auto object-contain"
-                  referrerPolicy="no-referrer"
-                />
+              <div className="w-14 h-14 rounded-full overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all bg-white">
+                {logoLoading ? (
+                  <div className="w-14 h-14 bg-[#800000]/10 animate-pulse" />
+                ) : (
+                  <img 
+                    src={logoUrl || logo} 
+                    alt="Baraem Orthodox Logo" 
+                    className="w-full h-full object-contain rounded-full bg-transparent"
+                    referrerPolicy="no-referrer"
+                  />
+                )}
               </div>
               <span className="font-bold text-lg leading-tight text-[#8B0000] dark:text-gold group-hover:text-[#800000] transition-colors">براعم<br/>أرثوذكسية</span>
             </button>
@@ -3952,6 +3960,22 @@ const AppContent = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoLoading, setLogoLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'branding'), (doc) => {
+      if (doc.exists()) {
+        setLogoUrl(doc.data().logoUrl);
+      }
+      setLogoLoading(false);
+    }, (error) => {
+      console.error("Error fetching logo:", error);
+      setLogoLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -4004,7 +4028,11 @@ const AppContent = () => {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
-      <img src={logo} alt="Baraem Logo" className="w-48 h-auto mb-8 animate-pulse" referrerPolicy="no-referrer" />
+      {logoLoading ? (
+        <div className="w-48 h-48 bg-[#800000]/10 animate-pulse rounded-3xl mb-8" />
+      ) : (
+        <img src={logoUrl || logo} alt="Baraem Logo" className="w-48 h-auto mb-8 animate-pulse" referrerPolicy="no-referrer" />
+      )}
       <div className="w-12 h-12 border-4 border-stone-200 border-t-[#800000] rounded-full animate-spin" />
       <p className="mt-8 text-[#800000] font-bold text-lg text-center px-4">
         جاري تحميل خدمة البراعم... يرجى التأكد من اتصال الإنترنت
@@ -4013,11 +4041,11 @@ const AppContent = () => {
   );
 
   if (!user && activeTab === 'login') {
-    return <AuthScreen setActiveTab={setActiveTab} />;
+    return <AuthScreen setActiveTab={setActiveTab} logoUrl={logoUrl} logoLoading={logoLoading} />;
   }
 
   if (!user && !['hub', 'staff'].includes(activeTab)) {
-    return <AuthScreen setActiveTab={setActiveTab} />;
+    return <AuthScreen setActiveTab={setActiveTab} logoUrl={logoUrl} logoLoading={logoLoading} />;
   }
 
   return (
@@ -4038,7 +4066,16 @@ const AppContent = () => {
             onClick={() => setActiveTab('hub')}
             className="flex items-center gap-2 group"
           >
-            <img src="/logo.png" alt="Logo" className="h-10 w-auto" referrerPolicy="no-referrer" />
+            {logoLoading ? (
+              <div className="h-10 w-10 bg-white/20 animate-pulse rounded-full" />
+            ) : (
+              <img 
+                src={logoUrl || logo} 
+                alt="Logo" 
+                className="h-10 w-10 object-contain rounded-full bg-transparent" 
+                referrerPolicy="no-referrer" 
+              />
+            )}
             <span className="font-bold text-white hidden sm:inline">براعم أرثوذكسية</span>
           </button>
         </div>
@@ -4067,9 +4104,6 @@ const AppContent = () => {
               </button>
             </div>
           )}
-          <button className="p-2 hover:bg-white/20 rounded-xl text-gold transition-colors">
-            <Bell size={24} />
-          </button>
         </div>
       </header>
 
@@ -4078,6 +4112,8 @@ const AppContent = () => {
         setActiveTab={setActiveTab} 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
+        logoUrl={logoUrl}
+        logoLoading={logoLoading}
       />
 
       <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:mr-72' : 'lg:mr-72'} pt-16`}>
@@ -4113,6 +4149,7 @@ const AppContent = () => {
             {activeTab === 'exam_center' && <MonthlyExamCenter user={user} />}
             {activeTab === 'staff' && <StaffPage />}
             {activeTab === 'events' && <EventsPage />}
+            {activeTab === 'settings-mgmt' && <SettingsManager />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -4285,7 +4322,7 @@ export default function App() {
     }
 
     // General restricted tabs for non-admins
-    const restrictedTabs = ['dashboard', 'reports', 'staff_manager', 'events_manager', 'resource-mgmt', 'curriculum-mgmt', 'slider-mgmt', 'acceptance'];
+    const restrictedTabs = ['dashboard', 'reports', 'staff_manager', 'events_manager', 'resource-mgmt', 'curriculum-mgmt', 'slider-mgmt', 'acceptance', 'settings-mgmt'];
     if (restrictedTabs.includes(tab) && user?.role !== 'coordinator') return false;
     
     return true;

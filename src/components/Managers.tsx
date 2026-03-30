@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Save, Plus, Trash2, Upload, Eye, X, Star, Calendar, Clock, Search } from 'lucide-react';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { Save, Plus, Trash2, Upload, Eye, X, Star, Calendar, Clock, Search, RotateCw, Crop as CropIcon, Image as ImageIcon } from 'lucide-react';
+import { db, handleFirestoreError, OperationType, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { Curriculum, SliderImage, StaffMember, Event } from '../types';
+import { Curriculum, SliderImage, StaffMember, Event, Settings } from '../types';
 import { useAuth, useToast, useConfirm } from '../contexts';
 import { fileToBase64 } from '../utils';
+import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 // --- Curriculum Manager ---
 export const CurriculumManager = () => {
@@ -244,5 +246,329 @@ export const SliderManager = () => {
     </div>
   );
 };
-// --- Staff Manager (Admin) ---
-// --- Events Manager (Admin) ---
+// --- Settings Manager (Logo CMS) ---
+export const SettingsManager = () => {
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const { confirm } = useConfirm();
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'settings', 'branding'), (doc) => {
+      if (doc.exists()) {
+        setSettings({ id: doc.id, ...doc.data() } as Settings);
+      }
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const base64 = await fileToBase64(file);
+      setSelectedImage(base64);
+      setIsEditorOpen(true);
+    }
+  };
+
+  const handleSaveLogo = async (processedImage: string) => {
+    try {
+      // Convert base64 to blob
+      const res = await fetch(processedImage);
+      const blob = await res.blob();
+      
+      // Upload to storage
+      const storageRef = ref(storage, 'branding/logo.png');
+      await uploadBytes(storageRef, blob);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      await setDoc(doc(db, 'settings', 'branding'), {
+        logoUrl: downloadUrl,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || ''
+      });
+      addToast('تم تحديث الشعار بنجاح', 'success');
+      setIsEditorOpen(false);
+      setSelectedImage(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'settings');
+      addToast('فشل تحديث الشعار', 'error');
+    }
+  };
+
+  const handleDeleteLogo = () => {
+    confirm({
+      title: 'حذف الشعار',
+      message: 'هل أنت متأكد من حذف الشعار الحالي؟ سيتم استخدام الشعار الافتراضي.',
+      onConfirm: async () => {
+        try {
+          // Delete from storage if it exists
+          if (settings?.logoUrl) {
+            const storageRef = ref(storage, 'branding/logo.png');
+            try {
+              await deleteObject(storageRef);
+            } catch (e) {
+              console.warn("Storage object not found or already deleted");
+            }
+          }
+          await deleteDoc(doc(db, 'settings', 'branding'));
+          addToast('تم حذف الشعار بنجاح', 'success');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, 'settings');
+          addToast('فشل حذف الشعار', 'error');
+        }
+      }
+    });
+  };
+
+  if (loading) return <div className="p-12 animate-pulse text-[#800000] font-bold">جاري تحميل الإعدادات...</div>;
+
+  return (
+    <div className="p-12 max-w-4xl mx-auto">
+      <header className="mb-12">
+        <h1 className="text-4xl font-bold text-[#800000] mb-2">إعدادات الهوية</h1>
+        <p className="text-stone-500">إدارة شعار الخدمة والهوية البصرية</p>
+      </header>
+
+      <div className="bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden">
+        <div className="p-8">
+          <h2 className="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2">
+            <ImageIcon size={24} className="text-[#800000]" />
+            شعار الخدمة
+          </h2>
+
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="w-48 h-48 bg-stone-50 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden relative group">
+              {settings?.logoUrl ? (
+                <>
+                  <img 
+                    src={settings.logoUrl} 
+                    alt="Logo" 
+                    className="w-full h-full object-contain rounded-full bg-transparent" 
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button 
+                      onClick={handleDeleteLogo}
+                      className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center p-4">
+                  <ImageIcon size={48} className="mx-auto text-stone-300 mb-2" />
+                  <p className="text-xs text-stone-400 font-bold">لا يوجد شعار مخصص</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-4">
+              <p className="text-sm text-stone-600 leading-relaxed">
+                هذا الشعار سيظهر في الهيدر، صفحة تسجيل الدخول، والتقارير المطبوعة. يفضل استخدام صورة بخلفية شفافة (PNG) وبأبعاد مربعة.
+              </p>
+              <div className="flex gap-4">
+                <label className="btn-primary flex items-center gap-2 cursor-pointer">
+                  <Upload size={18} />
+                  <span>{settings?.logoUrl ? 'تغيير الشعار' : 'رفع شعار جديد'}</span>
+                  <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                </label>
+                {settings?.logoUrl && (
+                  <button 
+                    onClick={handleDeleteLogo}
+                    className="px-6 py-2.5 rounded-xl font-bold text-red-600 hover:bg-red-50 transition-colors border border-red-100"
+                  >
+                    حذف الحالي
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isEditorOpen && selectedImage && (
+          <LogoEditorModal 
+            image={selectedImage} 
+            onSave={handleSaveLogo} 
+            onClose={() => {
+              setIsEditorOpen(false);
+              setSelectedImage(null);
+            }} 
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+// --- Logo Editor Modal ---
+const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (img: string) => void, onClose: () => void }) => {
+  const [crop, setCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+  const [rotation, setRotation] = useState(0);
+  const [aspect, setAspect] = useState<number | undefined>(1);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    const initialCrop = centerCrop(
+      makeAspectCrop(
+        { unit: '%', width: 90 },
+        aspect || 1,
+        width,
+        height
+      ),
+      width,
+      height
+    );
+    setCrop(initialCrop);
+  };
+
+  const getCroppedImg = useCallback(async () => {
+    if (!imgRef.current || !completedCrop) return;
+
+    const canvas = document.createElement('canvas');
+    const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
+    const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    canvas.width = completedCrop.width;
+    canvas.height = completedCrop.height;
+
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+    ctx.drawImage(
+      imgRef.current,
+      completedCrop.x * scaleX,
+      completedCrop.y * scaleY,
+      completedCrop.width * scaleX,
+      completedCrop.height * scaleY,
+      0,
+      0,
+      completedCrop.width,
+      completedCrop.height
+    );
+
+    ctx.restore();
+
+    return canvas.toDataURL('image/png');
+  }, [completedCrop, rotation]);
+
+  const handleConfirm = async () => {
+    const croppedImg = await getCroppedImg();
+    if (croppedImg) {
+      onSave(croppedImg);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-stone-100 overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#800000] text-white rounded-full flex items-center justify-center">
+              <CropIcon size={20} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-stone-900">تعديل الشعار</h2>
+              <p className="text-xs text-stone-500 font-bold">قم بقص وتدوير الشعار قبل الحفظ</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors">
+            <X size={24} className="text-stone-400" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center bg-stone-100/50">
+          <div className="max-w-full overflow-hidden rounded-2xl shadow-inner bg-white p-4">
+            <ReactCrop
+              crop={crop}
+              onChange={(c) => setCrop(c)}
+              onComplete={(c) => setCompletedCrop(c)}
+              aspect={aspect}
+              circularCrop={false}
+            >
+              <img
+                ref={imgRef}
+                src={image}
+                alt="Crop me"
+                style={{ transform: `rotate(${rotation}deg)`, maxHeight: '50vh' }}
+                onLoad={onImageLoad}
+              />
+            </ReactCrop>
+          </div>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-4 w-full max-w-md">
+            <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-stone-100">
+              <button 
+                onClick={() => setRotation(r => (r - 90) % 360)}
+                className="p-2 hover:bg-stone-50 rounded-lg text-stone-600 transition-colors"
+                title="تدوير لليسار"
+              >
+                <RotateCw size={20} className="scale-x-[-1]" />
+              </button>
+              <span className="text-xs font-bold text-stone-400 px-2">التدوير</span>
+              <button 
+                onClick={() => setRotation(r => (r + 90) % 360)}
+                className="p-2 hover:bg-stone-50 rounded-lg text-stone-600 transition-colors"
+                title="تدوير لليمين"
+              >
+                <RotateCw size={20} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-stone-100">
+              <button 
+                onClick={() => setAspect(1)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspect === 1 ? 'bg-[#800000] text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              >
+                1:1
+              </button>
+              <button 
+                onClick={() => setAspect(undefined)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspect === undefined ? 'bg-[#800000] text-white' : 'text-stone-500 hover:bg-stone-50'}`}
+              >
+                حر
+              </button>
+              <span className="text-xs font-bold text-stone-400 px-2">الأبعاد</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-stone-100 bg-stone-50 flex gap-4">
+          <button 
+            onClick={handleConfirm}
+            className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
+          >
+            <Save size={20} />
+            <span>حفظ الشعار النهائي</span>
+          </button>
+          <button 
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-white transition-colors border border-stone-200"
+          >
+            إلغاء
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};

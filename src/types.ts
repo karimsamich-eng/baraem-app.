@@ -102,3 +102,10 @@ export interface Event {
   createdAt: string;
   createdBy: string;
 }
+
+export interface Settings {
+  id: string;
+  logoUrl: string;
+  updatedAt: string;
+  updatedBy: string;
+}

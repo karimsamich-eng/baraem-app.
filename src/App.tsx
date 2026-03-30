@@ -415,7 +415,7 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
           ) : logoUrl ? (
             <img 
               src={logoUrl} 
-              alt="Baraem Logo" 
+              alt="" 
               className="w-full h-full object-contain rounded-full bg-transparent"
               referrerPolicy="no-referrer"
             />
@@ -557,7 +557,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
                 ) : logoUrl ? (
                   <img 
                     src={logoUrl} 
-                    alt="Baraem Orthodox Logo" 
+                    alt="" 
                     className="w-full h-full object-contain rounded-full bg-transparent"
                     referrerPolicy="no-referrer"
                   />
@@ -4026,7 +4026,7 @@ const AppContent = () => {
       {logoLoading ? (
         <div className="w-48 h-48 bg-[#800000]/10 animate-pulse rounded-3xl mb-8" />
       ) : (
-        <img src={logoUrl || logo} alt="Baraem Logo" className="w-48 h-auto mb-8 animate-pulse" referrerPolicy="no-referrer" />
+        <img src={logoUrl || logo} alt="" className="w-48 h-auto mb-8 animate-pulse" referrerPolicy="no-referrer" />
       )}
       <div className="w-12 h-12 border-4 border-stone-200 border-t-[#800000] rounded-full animate-spin" />
       <p className="mt-8 text-[#800000] font-bold text-lg text-center px-4">
@@ -4066,7 +4066,7 @@ const AppContent = () => {
             ) : logoUrl ? (
               <img 
                 src={logoUrl} 
-                alt="Logo" 
+                alt="" 
                 className="h-10 w-10 object-contain rounded-full bg-transparent" 
                 referrerPolicy="no-referrer" 
               />

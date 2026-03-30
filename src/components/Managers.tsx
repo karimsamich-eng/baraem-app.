@@ -407,7 +407,7 @@ export const SettingsManager = () => {
                 <>
                   <img 
                     src={settings.logoUrl} 
-                    alt="Logo" 
+                    alt="" 
                     className="w-full h-full object-contain rounded-full bg-transparent" 
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">

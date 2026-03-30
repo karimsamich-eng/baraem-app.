@@ -66,8 +66,12 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (docSnap.exists()) {
         const url = docSnap.data().logoUrl;
         if (url) {
-          // Add cache busting timestamp
-          setLogoUrl(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`);
+          // Add cache busting timestamp only if it's not a data URL (Base64)
+          if (url.startsWith('data:')) {
+            setLogoUrl(url);
+          } else {
+            setLogoUrl(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`);
+          }
         } else {
           setLogoUrl(null);
         }

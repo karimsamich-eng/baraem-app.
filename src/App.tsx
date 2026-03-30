@@ -35,7 +35,7 @@ import {
   Resource, Curriculum, SliderImage, Report, StaffMember, Event 
 } from './types';
 import { exportToPdf, fileToBase64 } from './utils';
-import { AuthContext, AuthContextType, useAuth, ToastContext, useToast, ConfirmContext, useConfirm, ConfirmOptions } from './contexts';
+import { AuthContext, AuthContextType, useAuth, ToastContext, useToast, ConfirmContext, useConfirm, ConfirmOptions, BrandingProvider, useBranding } from './contexts';
 
 // --- Helpers ---
 
@@ -375,7 +375,8 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
 // --- Components ---
 
-const AuthScreen = ({ setActiveTab, logoUrl, logoLoading }: { setActiveTab: (t: string) => void, logoUrl: string | null, logoLoading: boolean }) => {
+const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
+  const { logoUrl, logoLoading } = useBranding();
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -411,13 +412,17 @@ const AuthScreen = ({ setActiveTab, logoUrl, logoLoading }: { setActiveTab: (t: 
         <div className="mb-8 inline-flex items-center justify-center w-32 h-32 bg-white dark:bg-dark-bg rounded-full shadow-lg border border-stone-100 dark:border-dark-border p-2 overflow-hidden">
           {logoLoading ? (
             <div className="w-full h-full bg-[#800000]/10 animate-pulse rounded-full" />
-          ) : (
+          ) : logoUrl ? (
             <img 
-              src={logoUrl || logo} 
+              src={logoUrl} 
               alt="Baraem Logo" 
               className="w-full h-full object-contain rounded-full bg-transparent"
               referrerPolicy="no-referrer"
             />
+          ) : (
+            <div className="w-full h-full bg-[#800000]/10 rounded-full flex items-center justify-center text-[#800000]">
+              <ImageIcon size={48} />
+            </div>
           )}
         </div>
         <h1 className="text-3xl font-bold mb-2 text-royal-red dark:text-gold">خدمة البراعم</h1>
@@ -501,7 +506,8 @@ const AuthScreen = ({ setActiveTab, logoUrl, logoLoading }: { setActiveTab: (t: 
   );
 };
 
-const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, logoUrl, logoLoading }: { activeTab: string, setActiveTab: (t: string) => void, isOpen: boolean, setIsOpen: (o: boolean) => void, logoUrl: string | null, logoLoading: boolean }) => {
+const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: string, setActiveTab: (t: string) => void, isOpen: boolean, setIsOpen: (o: boolean) => void }) => {
+  const { logoUrl, logoLoading } = useBranding();
   const { user, logout, canAccess } = useAuth();
   
   const menuItems = [
@@ -545,16 +551,20 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen, logoUrl, logoLoad
               }}
               className="flex items-center gap-3 group transition-all text-right"
             >
-              <div className="w-14 h-14 rounded-full overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all bg-white">
+              <div className="w-14 h-14 rounded-full overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all bg-white flex items-center justify-center">
                 {logoLoading ? (
                   <div className="w-14 h-14 bg-[#800000]/10 animate-pulse" />
-                ) : (
+                ) : logoUrl ? (
                   <img 
-                    src={logoUrl || logo} 
+                    src={logoUrl} 
                     alt="Baraem Orthodox Logo" 
                     className="w-full h-full object-contain rounded-full bg-transparent"
                     referrerPolicy="no-referrer"
                   />
+                ) : (
+                  <div className="w-full h-full bg-[#800000]/10 flex items-center justify-center text-[#800000]">
+                    <ImageIcon size={24} />
+                  </div>
                 )}
               </div>
               <span className="font-bold text-lg leading-tight text-[#8B0000] dark:text-gold group-hover:text-[#800000] transition-colors">براعم<br/>أرثوذكسية</span>
@@ -3954,27 +3964,12 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
 
 const AppContent = () => {
   const { user, loading, canAccess, logout } = useAuth();
+  const { logoUrl, logoLoading } = useBranding();
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('hub');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
-
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [logoLoading, setLogoLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'branding'), (doc) => {
-      if (doc.exists()) {
-        setLogoUrl(doc.data().logoUrl);
-      }
-      setLogoLoading(false);
-    }, (error) => {
-      console.error("Error fetching logo:", error);
-      setLogoLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     window.addEventListener('beforeinstallprompt', (e) => {
@@ -4041,11 +4036,11 @@ const AppContent = () => {
   );
 
   if (!user && activeTab === 'login') {
-    return <AuthScreen setActiveTab={setActiveTab} logoUrl={logoUrl} logoLoading={logoLoading} />;
+    return <AuthScreen setActiveTab={setActiveTab} />;
   }
 
   if (!user && !['hub', 'staff'].includes(activeTab)) {
-    return <AuthScreen setActiveTab={setActiveTab} logoUrl={logoUrl} logoLoading={logoLoading} />;
+    return <AuthScreen setActiveTab={setActiveTab} />;
   }
 
   return (
@@ -4068,13 +4063,17 @@ const AppContent = () => {
           >
             {logoLoading ? (
               <div className="h-10 w-10 bg-white/20 animate-pulse rounded-full" />
-            ) : (
+            ) : logoUrl ? (
               <img 
-                src={logoUrl || logo} 
+                src={logoUrl} 
                 alt="Logo" 
                 className="h-10 w-10 object-contain rounded-full bg-transparent" 
                 referrerPolicy="no-referrer" 
               />
+            ) : (
+              <div className="h-10 w-10 bg-white/20 rounded-full flex items-center justify-center text-gold">
+                <ImageIcon size={20} />
+              </div>
             )}
             <span className="font-bold text-white hidden sm:inline">براعم أرثوذكسية</span>
           </button>
@@ -4112,8 +4111,6 @@ const AppContent = () => {
         setActiveTab={setActiveTab} 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen} 
-        logoUrl={logoUrl}
-        logoLoading={logoLoading}
       />
 
       <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:mr-72' : 'lg:mr-72'} pt-16`}>
@@ -4340,13 +4337,15 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <ConfirmProvider>
-          <AuthContext.Provider value={authValue}>
-            <AppContent />
-          </AuthContext.Provider>
-        </ConfirmProvider>
-      </ToastProvider>
+      <BrandingProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <AuthContext.Provider value={authValue}>
+              <AppContent />
+            </AuthContext.Provider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </BrandingProvider>
     </ErrorBoundary>
   );
 }

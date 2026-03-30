@@ -4,9 +4,9 @@ import { Save, Plus, Trash2, Upload, Eye, X, Star, Calendar, Clock, Search, Rota
 import { db, handleFirestoreError, OperationType, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { Curriculum, SliderImage, StaffMember, Event, Settings } from '../types';
-import { useAuth, useToast, useConfirm } from '../contexts';
+import { useAuth, useToast, useConfirm, useBranding } from '../contexts';
 import { fileToBase64 } from '../utils';
-import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop } from 'react-image-crop';
+import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop, convertToPixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
 // --- Curriculum Manager ---
@@ -251,6 +251,7 @@ export const SettingsManager = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
+  const { refreshLogo } = useBranding();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -293,12 +294,16 @@ export const SettingsManager = () => {
         updatedAt: new Date().toISOString(),
         updatedBy: user?.username || ''
       });
+      
+      refreshLogo(); // Force global update with cache busting
       addToast('تم تحديث الشعار بنجاح', 'success');
       setIsEditorOpen(false);
       setSelectedImage(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'settings');
-      addToast('فشل تحديث الشعار', 'error');
+      console.error("Logo save failed:", error);
+      addToast('فشل تحديث الشعار. يرجى المحاولة مرة أخرى.', 'error');
+      // Re-throw to let the modal know it failed
+      throw error;
     }
   };
 
@@ -318,6 +323,7 @@ export const SettingsManager = () => {
             }
           }
           await deleteDoc(doc(db, 'settings', 'branding'));
+          refreshLogo();
           addToast('تم حذف الشعار بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'settings');
@@ -410,11 +416,12 @@ export const SettingsManager = () => {
 };
 
 // --- Logo Editor Modal ---
-const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (img: string) => void, onClose: () => void }) => {
+const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (img: string) => Promise<void>, onClose: () => void }) => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [rotation, setRotation] = useState(0);
   const [aspect, setAspect] = useState<number | undefined>(1);
+  const [saving, setSaving] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
   const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -430,6 +437,8 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
       height
     );
     setCrop(initialCrop);
+    // Initialize completedCrop so the save button works even if user doesn't touch the crop area
+    setCompletedCrop(convertToPixelCrop(initialCrop, width, height));
   };
 
   const getCroppedImg = useCallback(async () => {
@@ -468,9 +477,17 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
   }, [completedCrop, rotation]);
 
   const handleConfirm = async () => {
-    const croppedImg = await getCroppedImg();
-    if (croppedImg) {
-      onSave(croppedImg);
+    if (!completedCrop || saving) return;
+    setSaving(true);
+    try {
+      const croppedImg = await getCroppedImg();
+      if (croppedImg) {
+        await onSave(croppedImg);
+      }
+    } catch (error) {
+      console.error("Error saving cropped image:", error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -556,10 +573,15 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
         <div className="p-6 border-t border-stone-100 bg-stone-50 flex gap-4">
           <button 
             onClick={handleConfirm}
-            className="flex-1 btn-primary py-3 flex items-center justify-center gap-2"
+            disabled={!completedCrop || saving}
+            className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save size={20} />
-            <span>حفظ الشعار النهائي</span>
+            {saving ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save size={20} />
+            )}
+            <span>{saving ? 'جاري الحفظ...' : 'حفظ الشعار النهائي'}</span>
           </button>
           <button 
             onClick={onClose}

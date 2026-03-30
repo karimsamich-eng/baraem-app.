@@ -401,7 +401,7 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
   return (
     <div className="min-h-screen flex items-center justify-center bg-off-white dark:bg-dark-bg relative overflow-hidden transition-colors duration-300">
       <div className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#9B1B1B_1px,transparent_1px)] [background-size:40px_40px]" />
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#800000_1px,transparent_1px)] [background-size:40px_40px]" />
       </div>
       
       <motion.div 
@@ -2747,7 +2747,7 @@ function StaffPage() {
             
             <div className="flex items-center gap-1.5 text-gold mb-6">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={18} fill={i < member.rating ? "#D4AF37" : "none"} strokeWidth={2} />
+                <Star key={i} size={18} fill={i < member.rating ? "#FFD700" : "none"} strokeWidth={2} />
               ))}
             </div>
             
@@ -3154,7 +3154,7 @@ export const StaffManager = () => {
               <p className="text-xs text-stone-500">{member.responsibility}</p>
               <div className="flex items-center gap-0.5 mt-1 text-gold">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={10} fill={i < member.rating ? "#D4AF37" : "none"} />
+                  <Star key={i} size={10} fill={i < member.rating ? "#FFD700" : "none"} />
                 ))}
               </div>
             </div>
@@ -3265,7 +3265,7 @@ export const StaffManager = () => {
                         >
                           <Star 
                             size={28} 
-                            fill={star <= rating ? "#D4AF37" : "none"} 
+                            fill={star <= rating ? "#FFD700" : "none"} 
                             className={star <= rating ? "text-gold" : "text-stone-300"}
                           />
                         </button>
@@ -3376,14 +3376,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
         <HeroSlider />
       </div>
 
-      <div className="flex flex-col items-center gap-4 mb-8 md:mb-12">
-        <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mt-10 text-center">مرحباً بك في خدمة البراعم</h1>
-        <button className="lg:hidden p-2 hover:bg-red-50 hover:text-red-700 dark:hover:bg-dark-bg rounded-xl text-stone-400 transition-colors">
-          <Bell size={24} />
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mt-8">
         {visibleCards.map(card => (
           <motion.button
             key={card.id}
@@ -3952,7 +3945,7 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
 };
 
 const AppContent = () => {
-  const { user, loading, canAccess } = useAuth();
+  const { user, loading, canAccess, logout } = useAuth();
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState('hub');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -4012,8 +4005,8 @@ const AppContent = () => {
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white">
       <img src={logo} alt="Baraem Logo" className="w-48 h-auto mb-8 animate-pulse" referrerPolicy="no-referrer" />
-      <div className="w-12 h-12 border-4 border-stone-200 border-t-[#8B0000] rounded-full animate-spin" />
-      <p className="mt-8 text-[#8B0000] font-bold text-lg text-center px-4">
+      <div className="w-12 h-12 border-4 border-stone-200 border-t-[#800000] rounded-full animate-spin" />
+      <p className="mt-8 text-[#800000] font-bold text-lg text-center px-4">
         جاري تحميل خدمة البراعم... يرجى التأكد من اتصال الإنترنت
       </p>
     </div>
@@ -4032,30 +4025,51 @@ const AppContent = () => {
       <ViewOnlyBadge />
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
-      {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 left-0 right-0 h-16 bg-[#4c0099] border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-4 z-30 shadow-md">
-        <div className="flex items-center gap-2">
+      {/* Header */}
+      <header className="sticky top-0 left-0 right-0 lg:right-72 h-16 bg-[#800000] border-b border-stone-100 dark:border-dark-border flex items-center justify-between px-4 z-30 shadow-md">
+        <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors"
+            className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-gold transition-colors"
           >
             <Menu size={24} />
           </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <img src={logo} alt="Logo" className="h-8 w-auto" referrerPolicy="no-referrer" />
-          <span className="font-bold text-white">براعم</span>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Notification Bell - visible on mobile */}
-          <button className="p-2 hover:bg-white/20 rounded-xl text-white transition-colors">
-            <Bell size={24} />
+          <button 
+            onClick={() => setActiveTab('hub')}
+            className="flex items-center gap-2 group"
+          >
+            <img src="/logo.png" alt="Logo" className="h-10 w-auto" referrerPolicy="no-referrer" />
+            <span className="font-bold text-white hidden sm:inline">براعم أرثوذكسية</span>
           </button>
+        </div>
+
+        <div className="flex items-center gap-4">
           {user && (
-            <div className="w-8 h-8 bg-gold text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
-              {user.displayName?.[0]}
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-white font-bold text-sm">مرحبًا {user.displayName}</span>
+                <span className="text-gold text-[10px] font-medium">
+                  {(user.role === 'admin' || user.role === 'coordinator') ? 'المنسق' : 
+                   user.role === 'attendance' ? 'خادم الحضور' :
+                   user.role === 'tayo' ? 'خادم الطايو' : 
+                   user.role === 'practical' ? 'خادم الخدمة العملية' : 'زائر'}
+                </span>
+              </div>
+              <div className="w-10 h-10 bg-gold text-[#800000] rounded-full flex items-center justify-center font-bold shadow-sm">
+                {user.displayName?.[0]}
+              </div>
+              <button 
+                onClick={() => logout()}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gold/10 hover:bg-gold/20 text-gold rounded-lg transition-all border border-gold/20"
+              >
+                <LogOut size={18} />
+                <span className="font-bold text-sm hidden sm:inline">تسجيل الخروج</span>
+              </button>
             </div>
           )}
+          <button className="p-2 hover:bg-white/20 rounded-xl text-gold transition-colors">
+            <Bell size={24} />
+          </button>
         </div>
       </header>
 
@@ -4066,7 +4080,7 @@ const AppContent = () => {
         setIsOpen={setIsSidebarOpen} 
       />
 
-      <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:mr-72' : 'lg:mr-72'} pt-16 lg:pt-0`}>
+      <main className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'lg:mr-72' : 'lg:mr-72'} pt-16`}>
         {showInstallBtn && (
           <div className="bg-gold/10 border-b border-gold/20 p-3 flex items-center justify-between px-8">
             <p className="text-xs font-bold text-stone-700">تثبيت تطبيق البراعم على جهازك لتجربة أفضل</p>

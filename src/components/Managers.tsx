@@ -295,46 +295,66 @@ export const SettingsManager = () => {
   };
 
   const handleSaveLogo = async (processedImage: string) => {
+    console.log("1. handleSaveLogo START - Image length:", processedImage.length);
     const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
     );
 
     try {
-      // Convert base64 to blob
+      console.log("2. Converting base64 to blob...");
       const res = await fetch(processedImage);
       const blob = await res.blob();
+      console.log("3. Blob created - Size:", blob.size);
       
       // Upload to storage with timeout
       const storageRef = ref(storage, 'branding/logo.png');
       
-      console.log("Starting upload to Firebase Storage...");
-      await Promise.race([
-        uploadBytes(storageRef, blob),
-        timeout
-      ]);
-      
-      console.log("Upload successful, getting download URL...");
-      const downloadUrl = await getDownloadURL(storageRef);
+      console.log("4. Firebase Storage Upload START...");
+      try {
+        await Promise.race([
+          uploadBytes(storageRef, blob),
+          timeout
+        ]);
+        console.log("5. Firebase Storage Upload SUCCESS");
+        
+        console.log("6. Getting download URL...");
+        const downloadUrl = await getDownloadURL(storageRef);
+        console.log("7. Download URL obtained:", downloadUrl);
 
-      console.log("Saving to Firestore site_settings...");
-      await setDoc(doc(db, 'settings', 'site_settings'), {
-        logoUrl: downloadUrl,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user?.username || ''
-      });
+        console.log("8. Saving URL to Firestore site_settings...");
+        await setDoc(doc(db, 'settings', 'site_settings'), {
+          logoUrl: downloadUrl,
+          updatedAt: new Date().toISOString(),
+          updatedBy: user?.username || '',
+          storageMethod: 'firebase_storage'
+        });
+      } catch (storageError: any) {
+        console.error("!!! FIREBASE STORAGE FAILED - FALLING BACK TO BASE64 !!!", storageError);
+        alert(`Storage Error: ${storageError.message || 'Unknown'}. Switching to Base64 fallback...`);
+        
+        console.log("9. Saving BASE64 directly to Firestore...");
+        // Firestore has a 1MB limit. A typical cropped logo should be well under that.
+        await setDoc(doc(db, 'settings', 'site_settings'), {
+          logoUrl: processedImage, // Save the actual base64 string
+          updatedAt: new Date().toISOString(),
+          updatedBy: user?.username || '',
+          storageMethod: 'base64_fallback'
+        });
+      }
       
-      refreshLogo(); // Force global update with cache busting
+      console.log("10. handleSaveLogo SUCCESS - Refreshing UI");
+      refreshLogo(); 
       addToast('تم تحديث الشعار بنجاح', 'success');
       setIsEditorOpen(false);
       setSelectedImage(null);
     } catch (error: any) {
-      console.error("CRITICAL: Logo save failed:", error);
-      if (error.message === 'TIMEOUT') {
-        addToast('انتهت مهلة الرفع (10 ثوانٍ). يرجى التحقق من اتصالك بالإنترنت.', 'error');
-      } else {
-        addToast(`فشل تحديث الشعار: ${error.message || 'خطأ غير معروف'}`, 'error');
-      }
-      // Re-throw to let the modal know it failed
+      console.error("CRITICAL: Logo save failed completely:", error);
+      const errorMsg = error.message === 'TIMEOUT' 
+        ? 'انتهت مهلة الرفع (15 ثانية). يرجى التحقق من اتصالك بالإنترنت.' 
+        : `فشل تحديث الشعار: ${error.message || 'خطأ غير معروف'}`;
+      
+      alert(`CRITICAL ERROR: ${errorMsg}`);
+      addToast(errorMsg, 'error');
       throw error;
     }
   };
@@ -645,9 +665,9 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
           </button>
           <button 
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-white transition-colors border border-stone-200"
+            className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-white transition-colors border border-stone-200 z-[110]"
           >
-            إلغاء
+            إلغاء / إغلاق إجباري
           </button>
         </div>
       </motion.div>

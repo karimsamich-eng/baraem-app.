@@ -106,6 +106,7 @@ export interface Event {
 export interface Settings {
   id: string;
   logoUrl: string;
+  anthemPptxUrl?: string;
   updatedAt: string;
   updatedBy: string;
 }

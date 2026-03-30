@@ -294,6 +294,21 @@ export const SettingsManager = () => {
     }
   };
 
+  const handleAnthemPptxSave = async (url: string) => {
+    if (!url.trim()) return;
+    try {
+      await setDoc(doc(db, 'settings', 'site_settings'), {
+        anthemPptxUrl: url.trim(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || ''
+      }, { merge: true });
+      addToast('تم تحديث رابط ملف الشعار بنجاح', 'success');
+    } catch (error) {
+      console.error("Anthem PPTX URL save failed:", error);
+      addToast('فشل تحديث رابط ملف الشعار', 'error');
+    }
+  };
+
   const handleSaveLogo = async (processedImage: string) => {
     console.log("1. handleSaveLogo START - Image length:", processedImage.length);
     const timeout = new Promise((_, reject) => 
@@ -473,6 +488,32 @@ export const SettingsManager = () => {
                     </button>
                   </div>
                 </div>
+
+                <div className="pt-4 border-t border-stone-100">
+                  <label className="block text-sm font-bold text-stone-700 mb-2">رابط ملف الشعار (PPTX)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="url" 
+                      defaultValue={settings?.anthemPptxUrl}
+                      placeholder="https://example.com/anthem.pptx"
+                      className="flex-1 px-4 py-2 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-[#800000] outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAnthemPptxSave((e.target as HTMLInputElement).value);
+                        }
+                      }}
+                    />
+                    <button 
+                      onClick={(e) => {
+                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                        handleAnthemPptxSave(input.value);
+                      }}
+                      className="px-4 py-2 bg-[#800000] text-white rounded-xl text-sm font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-colors"
+                    >
+                      حفظ الرابط
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -495,7 +536,166 @@ export const SettingsManager = () => {
   );
 };
 
-// --- Logo Editor Modal ---
+// --- Anthem Manager ---
+export const AnthemManager = () => {
+  const [slides, setSlides] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const { confirm } = useConfirm();
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'anthem_slides'), (snapshot) => {
+      const s = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      s.sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
+      setSlides(s);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'anthem_slides');
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const base64 = await fileToBase64(file);
+        setPreview(base64);
+      } catch (error) {
+        console.error('Error processing file:', error);
+      }
+    }
+  };
+
+  const handleAdd = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!preview) return;
+    
+    setUploading(true);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const order = parseInt(formData.get('order') as string) || 0;
+
+    try {
+      const docRef = doc(collection(db, 'anthem_slides'));
+      await setDoc(docRef, {
+        imageUrl: preview,
+        order,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.username || ''
+      });
+      form.reset();
+      setPreview(null);
+      addToast('تم إضافة الشريحة بنجاح', 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'anthem_slides');
+      addToast('فشل إضافة الشريحة', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    confirm({
+      title: 'حذف شريحة',
+      message: 'هل أنت متأكد من حذف هذه الشريحة؟ لا يمكن التراجع عن هذا الإجراء.',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'anthem_slides', id));
+          addToast('تم حذف الشريحة بنجاح', 'success');
+        } catch (error) {
+          handleFirestoreError(error, OperationType.DELETE, 'anthem_slides');
+          addToast('فشل حذف الشريحة', 'error');
+        }
+      }
+    });
+  };
+
+  if (loading) return <div className="p-12 animate-pulse text-[#800000] font-bold">جاري تحميل الشرائح...</div>;
+
+  return (
+    <div className="p-12 max-w-6xl mx-auto">
+      <header className="mb-12">
+        <h1 className="text-4xl font-bold text-[#800000] mb-2">إدارة شعار الخدمة</h1>
+        <p className="text-stone-500 italic">إدارة شرائح شعار خدمة البراعم</p>
+      </header>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="lg:col-span-1">
+          <div className="card-clean p-8 sticky top-8">
+            <h3 className="text-xl font-bold text-[#800000] mb-6">إضافة شريحة جديدة</h3>
+            <form onSubmit={handleAdd} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">صورة الشريحة</label>
+                <div className="relative h-40 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden group">
+                  {preview ? (
+                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center">
+                      <Upload className="mx-auto text-stone-300 mb-2" size={32} />
+                      <p className="text-[10px] text-stone-400">اختر ملف صورة</p>
+                    </div>
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileChange} 
+                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">الترتيب</label>
+                <input name="order" type="number" className="input-clean" placeholder="أدخل رقم الترتيب" />
+              </div>
+              <button 
+                type="submit" 
+                disabled={uploading || !preview}
+                className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {uploading ? 'جاري الحفظ...' : (
+                  <>
+                    <Plus size={18} />
+                    إضافة الشريحة
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {slides.map(slide => (
+              <div key={slide.id} className="card-clean overflow-hidden group">
+                <div className="relative h-48">
+                  <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <button 
+                    onClick={() => handleDelete(slide.id)}
+                    className="absolute top-2 left-2 p-2 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-700 transition-all shadow-lg"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 text-white rounded-full text-xs font-bold">
+                    ترتيب: {slide.order}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {slides.length === 0 && (
+              <div className="col-span-2 py-20 text-center text-stone-400 italic bg-white rounded-3xl border-2 border-dashed border-stone-100">
+                لا توجد شرائح حالياً
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (img: string) => Promise<void>, onClose: () => void }) => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();

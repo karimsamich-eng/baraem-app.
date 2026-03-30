@@ -216,6 +216,19 @@
         "updatedBy": { "type": "string", "description": "Username of the user who last updated the record." }
       },
       "required": ["logoUrl", "updatedAt", "updatedBy"]
+    },
+    "AnthemSlide": {
+      "title": "Anthem Slide",
+      "description": "A slide for the service anthem carousel.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID of the slide." },
+        "imageUrl": { "type": "string", "description": "Link to the image file (Base64 or Storage URL)." },
+        "order": { "type": "number", "description": "Display order of the slide." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the slide was added." },
+        "createdBy": { "type": "string", "description": "Username of the user who added the slide." }
+      },
+      "required": ["imageUrl", "order", "createdAt", "createdBy"]
     }
   },
   "firestore": {
@@ -227,6 +240,7 @@
     "/resources": { "schema": "Resource", "description": "Collection of service resources." },
     "/curriculum": { "schema": "Curriculum", "description": "Collection of squad curricula." },
     "/slider_images": { "schema": "SliderImage", "description": "Collection of home page slider images." },
+    "/anthem_slides": { "schema": "AnthemSlide", "description": "Collection of service anthem slides." },
     "/reports": { "schema": "Report", "description": "Collection of generated reports." },
     "/staff": { "schema": "StaffMember", "description": "Collection of staff members." },
     "/events": { "schema": "Event", "description": "Collection of church events." },

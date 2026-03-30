@@ -113,7 +113,12 @@ service cloud.firestore {
     }
 
     match /slider_images/{imageId} {
-      allow read: if true; // Publicly readable for the home page slider
+      allow get, list: if true; // Publicly readable for the home page slider
+      allow write: if isCoordinator();
+    }
+
+    match /anthem_slides/{allPaths=**} {
+      allow read: if true; // Publicly readable for the anthem slider
       allow write: if isCoordinator();
     }
 

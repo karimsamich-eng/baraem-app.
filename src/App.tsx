@@ -11,16 +11,17 @@ import {
 } from './firebase.ts';
 import { signInAnonymously } from 'firebase/auth';
 import { HeroSlider } from './components/HeroSlider';
+import { ServiceAnthem } from './components/ServiceAnthem';
 import { MonthlyExamCenter } from './components/MonthlyExamCenter';
 import { StudentProfileNew } from './components/StudentProfile';
 import { StudentListNew } from './components/StudentList';
-import { CurriculumManager, SliderManager, SettingsManager } from './components/Managers';
+import { CurriculumManager, SliderManager, SettingsManager, AnthemManager } from './components/Managers';
 import { 
   Users, Calendar, GraduationCap, LayoutDashboard, LogOut, Plus, Search, Trophy,
   CheckCircle2, XCircle, Clock, MoreVertical, Edit2, Trash2, ChevronRight, 
   ArrowLeft, Save, Filter, Download, UserPlus, BookOpen, AlertCircle, Star, Heart,
   FileText, Eye, EyeOff, Menu, X, Upload, Image as ImageIcon,
-  CheckCircle, Info, MessageCircle, Sun, Moon, UserCog, Bell, AlertTriangle
+  CheckCircle, Info, MessageCircle, Sun, Moon, UserCog, Bell, AlertTriangle, Music
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -521,6 +522,9 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
     { id: 'exam_center', label: 'مركز الامتحانات', icon: BookOpen },
     { id: 'staff', label: 'الهيكل التنظيمي', icon: Users },
     { id: 'events', label: 'الأحداث القادمة', icon: Calendar },
+    { id: 'resource-mgmt', label: 'إدارة الموارد', icon: Save },
+    { id: 'slider-mgmt', label: 'إدارة الصور', icon: Save },
+    { id: 'anthem-mgmt', label: 'إدارة الشعار', icon: Music },
     { id: 'settings-mgmt', label: 'إعدادات الهوية', icon: UserCog },
   ].filter(item => canAccess(item.id));
 
@@ -3384,6 +3388,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
     { id: 'gallery', label: 'معرض الصور', icon: ImageIcon },
     { id: 'resource-mgmt', label: 'إدارة الموارد', icon: Save },
     { id: 'slider-mgmt', label: 'إدارة الصور', icon: Save },
+    { id: 'anthem-mgmt', label: 'إدارة الشعار', icon: Music },
   ];
 
   const visibleCards = cards.filter(card => canAccess(card.id));
@@ -3392,6 +3397,10 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
     <div className="p-4 md:p-12 max-w-7xl mx-auto min-h-screen">
       <div className="mb-12">
         <HeroSlider />
+      </div>
+
+      <div className="mb-12">
+        <ServiceAnthem />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mt-8">
@@ -4146,6 +4155,9 @@ const AppContent = () => {
             {activeTab === 'exam_center' && <MonthlyExamCenter user={user} />}
             {activeTab === 'staff' && <StaffPage />}
             {activeTab === 'events' && <EventsPage />}
+            {activeTab === 'resource-mgmt' && <CurriculumManager />}
+            {activeTab === 'slider-mgmt' && <SliderManager />}
+            {activeTab === 'anthem-mgmt' && <AnthemManager />}
             {activeTab === 'settings-mgmt' && <SettingsManager />}
           </motion.div>
         </AnimatePresence>

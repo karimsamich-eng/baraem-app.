@@ -15,6 +15,7 @@ export const CurriculumManager = () => {
   const { addToast } = useToast();
   const [curricula, setCurricula] = useState<Curriculum[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'curriculum'), (snapshot) => {
@@ -31,6 +32,7 @@ export const CurriculumManager = () => {
     const formData = new FormData(e.currentTarget);
     const pdfUrl = formData.get('pdfUrl') as string;
 
+    setIsUpdating(squad);
     try {
       await setDoc(doc(db, 'curriculum', squad), {
         pdfUrl,
@@ -41,6 +43,8 @@ export const CurriculumManager = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'curriculum');
       addToast('فشل تحديث المنهج', 'error');
+    } finally {
+      setIsUpdating(null);
     }
   };
 
@@ -57,22 +61,36 @@ export const CurriculumManager = () => {
         {['الفرقة الأولى', 'الفرقة الثانية'].map(squad => {
           const curr = curricula.find(c => c.id === squad);
           return (
-            <div key={squad} className="card-clean p-8">
+            <div key={squad} className="interactive-card card-clean p-8">
               <h3 className="text-xl font-bold text-stone-900 mb-6">{squad}</h3>
               <form onSubmit={(e) => handleUpdate(e, squad)} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">رابط ملف PDF</label>
+                  <label className="text-xs font-bold text-[#333333] uppercase tracking-wider">رابط ملف PDF</label>
                   <input 
                     name="pdfUrl" 
                     defaultValue={curr?.pdfUrl} 
                     required 
                     className="input-clean" 
                     placeholder="https://example.com/curriculum.pdf"
+                    disabled={isUpdating === squad}
                   />
                 </div>
-                <button type="submit" className="w-full btn-primary flex items-center justify-center gap-2">
-                  <Save size={18} />
-                  تحديث المنهج
+                <button 
+                  type="submit" 
+                  disabled={isUpdating === squad}
+                  className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isUpdating === squad ? (
+                    <>
+                      <RotateCw className="w-5 h-5 animate-spin" />
+                      جاري التحديث...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      تحديث المنهج
+                    </>
+                  )}
                 </button>
               </form>
               {curr && (
@@ -216,11 +234,11 @@ export const SliderManager = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1">
-          <div className="card-clean p-8 sticky top-8">
+          <div className="interactive-card card-clean p-8 sticky top-8">
             <h3 className="text-xl font-bold text-[#800000] mb-6">إضافة صورة جديدة</h3>
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">صورة العرض</label>
+                <label className="text-xs font-bold text-[#333333] uppercase tracking-wider">صورة العرض</label>
                 <div className="relative h-40 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden group">
                   {preview ? (
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
@@ -234,20 +252,31 @@ export const SliderManager = () => {
                     type="file" 
                     accept="image/*" 
                     onChange={handleFileChange} 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                    disabled={uploading}
+                    className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" 
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">عنوان (اختياري)</label>
-                <input name="caption" className="input-clean" placeholder="أدخل عنواناً للصورة" />
+                <label className="text-xs font-bold text-[#333333] uppercase tracking-wider">عنوان (اختياري)</label>
+                <input 
+                  name="caption" 
+                  className="input-clean" 
+                  placeholder="أدخل عنواناً للصورة" 
+                  disabled={uploading}
+                />
               </div>
               <button 
                 type="submit" 
                 disabled={uploading || !preview}
                 className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {uploading ? 'جاري الحفظ...' : (
+                {uploading ? (
+                  <>
+                    <RotateCw className="w-5 h-5 animate-spin" />
+                    جاري الحفظ...
+                  </>
+                ) : (
                   <>
                     <Plus size={18} />
                     إضافة للمعرض
@@ -261,7 +290,7 @@ export const SliderManager = () => {
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {images.map(img => (
-              <div key={img.id} className="card-clean overflow-hidden group relative">
+              <div key={img.id} className="interactive-card card-clean overflow-hidden group relative">
                 <div className="relative h-48">
                   <img src={img.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   
@@ -354,6 +383,7 @@ export const SettingsManager = () => {
 
   const handleExternalUrlSave = async (url: string) => {
     if (!url.trim()) return;
+    setLoading(true);
     try {
       await setDoc(doc(db, 'settings', 'site_settings'), {
         logoUrl: url.trim(),
@@ -365,11 +395,14 @@ export const SettingsManager = () => {
     } catch (error) {
       console.error("External URL save failed:", error);
       addToast('فشل تحديث الشعار', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAnthemPptxSave = async (url: string) => {
     if (!url.trim()) return;
+    setLoading(true);
     try {
       await setDoc(doc(db, 'settings', 'site_settings'), {
         anthemPptxUrl: url.trim(),
@@ -380,6 +413,8 @@ export const SettingsManager = () => {
     } catch (error) {
       console.error("Anthem PPTX URL save failed:", error);
       addToast('فشل تحديث رابط ملف الشعار', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -453,6 +488,7 @@ export const SettingsManager = () => {
       title: 'حذف الشعار',
       message: 'هل أنت متأكد من حذف الشعار الحالي؟ سيتم استخدام الشعار الافتراضي.',
       onConfirm: async () => {
+        setLoading(true);
         try {
           // Delete from storage if it exists
           if (settings?.logoUrl) {
@@ -469,6 +505,8 @@ export const SettingsManager = () => {
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'settings');
           addToast('فشل حذف الشعار', 'error');
+        } finally {
+          setLoading(false);
         }
       }
     });
@@ -523,28 +561,30 @@ export const SettingsManager = () => {
               
               <div className="space-y-4">
                 <div className="flex gap-4">
-                  <label className="btn-primary flex items-center gap-2 cursor-pointer">
-                    <Upload size={18} />
+                  <label className={`btn-primary flex items-center gap-2 cursor-pointer ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    {loading ? <RotateCw className="w-5 h-5 animate-spin" /> : <Upload size={18} />}
                     <span>{settings?.logoUrl ? 'تغيير الشعار' : 'رفع شعار جديد'}</span>
-                    <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                    <input type="file" accept="image/*" onChange={handleFileSelect} className="hidden" disabled={loading} />
                   </label>
                   {settings?.logoUrl && (
                     <button 
                       onClick={handleDeleteLogo}
-                      className="px-6 py-2.5 rounded-xl font-bold text-red-600 hover:bg-red-50 transition-colors border border-red-100"
+                      disabled={loading}
+                      className="px-6 py-2.5 rounded-xl font-bold text-red-600 hover:bg-red-50 transition-colors border border-red-100 disabled:opacity-50"
                     >
-                      حذف الحالي
+                      {loading ? 'جاري الحذف...' : 'حذف الحالي'}
                     </button>
                   )}
                 </div>
 
                 <div className="pt-4 border-t border-stone-100">
-                  <label className="block text-sm font-bold text-stone-700 mb-2">رابط شعار خارجي (حل بديل)</label>
+                  <label className="block text-sm font-bold text-[#333333] mb-2">رابط شعار خارجي (حل بديل)</label>
                   <div className="flex gap-2">
                     <input 
                       type="url" 
                       placeholder="https://example.com/logo.png"
-                      className="flex-1 px-4 py-2 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-[#800000] outline-none"
+                      className="flex-1 px-4 py-2 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-[#800000] outline-none disabled:bg-stone-50"
+                      disabled={loading}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           handleExternalUrlSave((e.target as HTMLInputElement).value);
@@ -556,21 +596,23 @@ export const SettingsManager = () => {
                         const input = e.currentTarget.previousElementSibling as HTMLInputElement;
                         handleExternalUrlSave(input.value);
                       }}
-                      className="px-4 py-2 bg-stone-800 text-white rounded-xl text-sm font-bold hover:bg-stone-900 transition-colors"
+                      disabled={loading}
+                      className="px-4 py-2 bg-stone-800 text-white rounded-xl text-sm font-bold hover:bg-stone-900 transition-colors disabled:opacity-50"
                     >
-                      حفظ الرابط
+                      {loading ? <RotateCw className="w-4 h-4 animate-spin" /> : 'حفظ الرابط'}
                     </button>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-stone-100">
-                  <label className="block text-sm font-bold text-stone-700 mb-2">رابط ملف الشعار (PPTX)</label>
+                  <label className="block text-sm font-bold text-[#333333] mb-2">رابط ملف الشعار (PPTX)</label>
                   <div className="flex gap-2">
                     <input 
                       type="url" 
                       defaultValue={settings?.anthemPptxUrl}
                       placeholder="https://example.com/anthem.pptx"
-                      className="flex-1 px-4 py-2 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-[#800000] outline-none"
+                      className="flex-1 px-4 py-2 rounded-xl border border-stone-200 text-sm focus:ring-2 focus:ring-[#800000] outline-none disabled:bg-stone-50"
+                      disabled={loading}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           handleAnthemPptxSave((e.target as HTMLInputElement).value);
@@ -582,9 +624,10 @@ export const SettingsManager = () => {
                         const input = e.currentTarget.previousElementSibling as HTMLInputElement;
                         handleAnthemPptxSave(input.value);
                       }}
-                      className="px-4 py-2 bg-[#800000] text-white rounded-xl text-sm font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-colors"
+                      disabled={loading}
+                      className="px-4 py-2 bg-[#800000] text-white rounded-xl text-sm font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-colors disabled:opacity-50"
                     >
-                      حفظ الرابط
+                      {loading ? <RotateCw className="w-4 h-4 animate-spin" /> : 'حفظ الرابط'}
                     </button>
                   </div>
                 </div>
@@ -617,6 +660,7 @@ export const AnthemManager = () => {
   const [slides, setSlides] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -679,12 +723,15 @@ export const AnthemManager = () => {
       title: 'حذف شريحة',
       message: 'هل أنت متأكد من حذف هذه الشريحة؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
+        setIsDeleting(id);
         try {
           await deleteDoc(doc(db, 'anthem_slides', id));
           addToast('تم حذف الشريحة بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'anthem_slides');
           addToast('فشل حذف الشريحة', 'error');
+        } finally {
+          setIsDeleting(null);
         }
       }
     });
@@ -701,11 +748,11 @@ export const AnthemManager = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1">
-          <div className="card-clean p-8 sticky top-8">
+          <div className="interactive-card card-clean p-8 sticky top-8">
             <h3 className="text-xl font-bold text-[#800000] mb-6">إضافة شريحة جديدة</h3>
             <form onSubmit={handleAdd} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">صورة الشريحة</label>
+                <label className="text-xs font-bold text-[#333333] uppercase tracking-wider">صورة الشريحة</label>
                 <div className="relative h-40 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden group">
                   {preview ? (
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
@@ -719,20 +766,32 @@ export const AnthemManager = () => {
                     type="file" 
                     accept="image/*" 
                     onChange={handleFileChange} 
-                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                    disabled={uploading}
+                    className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed" 
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">الترتيب</label>
-                <input name="order" type="number" className="input-clean" placeholder="أدخل رقم الترتيب" />
+                <label className="text-xs font-bold text-[#333333] uppercase tracking-wider">الترتيب</label>
+                <input 
+                  name="order" 
+                  type="number" 
+                  className="input-clean" 
+                  placeholder="أدخل رقم الترتيب" 
+                  disabled={uploading}
+                />
               </div>
               <button 
                 type="submit" 
                 disabled={uploading || !preview}
                 className="w-full btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {uploading ? 'جاري الحفظ...' : (
+                {uploading ? (
+                  <>
+                    <RotateCw className="w-5 h-5 animate-spin" />
+                    جاري الحفظ...
+                  </>
+                ) : (
                   <>
                     <Plus size={18} />
                     إضافة الشريحة
@@ -746,14 +805,15 @@ export const AnthemManager = () => {
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {slides.map(slide => (
-              <div key={slide.id} className="card-clean overflow-hidden group">
+              <div key={slide.id} className="interactive-card card-clean overflow-hidden group">
                 <div className="relative h-48">
                   <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   <button 
                     onClick={() => handleDelete(slide.id)}
-                    className="absolute top-2 left-2 p-2 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-700 transition-all shadow-lg"
+                    disabled={!!isDeleting}
+                    className="absolute top-2 left-2 p-2 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-700 transition-all shadow-lg disabled:opacity-50"
                   >
-                    <Trash2 size={18} />
+                    {isDeleting === slide.id ? <RotateCw className="w-4 h-4 animate-spin" /> : <Trash2 size={18} />}
                   </button>
                   <div className="absolute bottom-2 right-2 px-3 py-1 bg-black/60 text-white rounded-full text-xs font-bold">
                     ترتيب: {slide.order}

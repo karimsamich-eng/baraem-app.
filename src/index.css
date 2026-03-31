@@ -7,14 +7,15 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
   --color-maroon: #800000;
-  --color-gold: #FFD700;
+  --color-gold: #A67C00;
   --color-off-white: #FFFFFF;
+  --color-vanilla: #FDF5E6;
 }
 
 @layer base {
   * { box-sizing: border-box; }
   body {
-    @apply font-sans bg-off-white text-[#212121] transition-colors duration-300 overflow-x-hidden;
+    @apply font-sans bg-vanilla text-[#212121] transition-colors duration-300 overflow-x-hidden;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     position: relative;
@@ -32,7 +33,7 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    opacity: 0.07;
+    opacity: 0.05;
     z-index: -1;
     pointer-events: none;
   }
@@ -76,10 +77,80 @@
   }
   
   .card-clean {
-    @apply bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden;
+    @apply bg-white border border-[rgba(128,0,0,0.1)] rounded-xl shadow-sm overflow-hidden transition-all duration-200;
+  }
+  
+  .interactive-card {
+    @apply border-[rgba(128,0,0,0.1)] transition-all duration-200 hover:ring-2 hover:ring-[#800000] hover:border-transparent hover:shadow-xl hover:-translate-y-1;
+  }
+  
+  .border-stone-100, .border-stone-200 {
+    border-color: rgba(128, 0, 0, 0.1) !important;
+  }
+  
+  .text-stone-300 {
+    color: #a8a29e !important; /* Equivalent to text-stone-400 */
+  }
+  
+  .text-stone-400 {
+    color: #78716c !important; /* Equivalent to text-stone-500 */
+  }
+  
+  .text-stone-500 {
+    color: #57534e !important; /* Equivalent to text-stone-600 */
+  }
+  
+  .bg-stone-50 {
+    background-color: #FFFDF8 !important;
+  }
+  
+  .hover\:bg-stone-50:hover {
+    background-color: #FFFDF8 !important;
+  }
+  
+  .bg-stone-100 {
+    background-color: #F5EBD9 !important;
+  }
+  
+  .hover\:bg-stone-100:hover {
+    background-color: #F5EBD9 !important;
+  }
+  
+  .bg-stone-200 {
+    background-color: #EADCC2 !important;
+  }
+  
+  .hover\:bg-stone-200:hover {
+    background-color: #EADCC2 !important;
   }
   
   .input-clean {
     @apply w-full px-4 py-3 bg-white border border-stone-200 rounded-lg focus:ring-2 focus:ring-[#FFD700] focus:border-[#800000] outline-none transition-all;
+  }
+
+  /* Global Card Styles for Vanilla Latte Theme */
+  div.bg-white.rounded-3xl,
+  div.bg-white.rounded-2xl,
+  div.bg-white.rounded-\[2rem\],
+  div.bg-white.rounded-\[2\.5rem\],
+  form.bg-white.rounded-3xl,
+  form.bg-white.rounded-2xl,
+  form.bg-white.rounded-\[2rem\],
+  form.bg-white.rounded-\[2\.5rem\] {
+    border-color: rgba(128, 0, 0, 0.1) !important;
+    transition: all 0.2s ease;
+  }
+  
+  div.bg-white.rounded-3xl:hover,
+  div.bg-white.rounded-2xl:hover,
+  div.bg-white.rounded-\[2rem\]:hover,
+  div.bg-white.rounded-\[2\.5rem\]:hover,
+  form.bg-white.rounded-3xl:hover,
+  form.bg-white.rounded-2xl:hover,
+  form.bg-white.rounded-\[2rem\]:hover,
+  form.bg-white.rounded-\[2\.5rem\]:hover {
+    box-shadow: 0 0 0 2px #800000, 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    border-color: transparent !important;
+    transform: translateY(-4px);
   }
 }

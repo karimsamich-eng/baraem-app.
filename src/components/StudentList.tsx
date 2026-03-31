@@ -4,8 +4,8 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth, useToast, useConfirm } from '../contexts';
 import { fileToBase64 } from '../utils';
 import { Student } from '../types';
-import { UserPlus, Search, Filter, Trash2 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { UserPlus, Search, Filter, Trash2, Edit2, X, Save, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { StudentProfileNew } from './StudentProfile';
 
 export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean }) => {
@@ -15,6 +15,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudentProfile, setSelectedStudentProfile] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -48,6 +49,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
 
   const handleAddStudent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving) return;
     const formData = new FormData(e.currentTarget);
     const newStudent = {
       name: formData.get('name') as string,
@@ -65,6 +67,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
       practicalPoints: 0,
     };
 
+    setIsSaving(true);
     try {
       const docRef = doc(collection(db, 'students'));
       await setDoc(docRef, { ...newStudent, id: docRef.id });
@@ -74,12 +77,14 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'students');
       addToast('فشل إضافة الطالب', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleEditStudent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editingStudent) return;
+    if (!editingStudent || isSaving) return;
     const formData = new FormData(e.currentTarget);
     const updatedStudent = {
       name: formData.get('name') as string,
@@ -91,6 +96,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
       photoUrl: photoBase64 || editingStudent.photoUrl || null,
     };
 
+    setIsSaving(true);
     try {
       await updateDoc(doc(db, 'students', editingStudent.id), updatedStudent);
       setEditingStudent(null);
@@ -99,6 +105,8 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'students');
       addToast('فشل تحديث بيانات الطالب', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -107,12 +115,15 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
       title: 'حذف طالب',
       message: 'هل أنت متأكد من حذف هذا الطالب؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
+        setIsSaving(true);
         try {
           await deleteDoc(doc(db, 'students', id));
           addToast('تم حذف الطالب بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'students');
           addToast('فشل حذف الطالب', 'error');
+        } finally {
+          setIsSaving(false);
         }
       }
     });
@@ -182,7 +193,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
             layout
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-dark-surface rounded-3xl shadow-md overflow-hidden border border-stone-100 dark:border-dark-border group hover:shadow-xl transition-all"
+            className="interactive-card bg-white dark:bg-dark-surface rounded-3xl shadow-md overflow-hidden border border-stone-100 dark:border-dark-border group hover:shadow-xl transition-all"
           >
             <div className="aspect-square relative overflow-hidden bg-stone-100 dark:bg-dark-bg">
               {student.photoUrl ? (
@@ -192,20 +203,125 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
               )}
             </div>
             <div className="p-4">
-              <h3 className="font-bold text-lg mb-1">{student.name}</h3>
+              <h3 className="font-bold text-lg mb-1 text-[#333333]">{student.name}</h3>
               <p className="text-stone-500 text-sm mb-4">{student.gradeLevel}</p>
               <div className="flex gap-2">
                 {user && (
                   <button onClick={() => setSelectedStudentProfile(student)} className="flex-1 btn-secondary text-sm py-2">عرض الملف</button>
                 )}
                 {user && (user.role === 'admin' || user.role === 'coordinator') && (
-                  <button onClick={() => handleDelete(student.id)} className="p-2 text-[#800000] hover:bg-red-50 hover:text-red-700 rounded-full transition-colors"><Trash2 size={18} /></button>
+                  <>
+                    <button onClick={() => setEditingStudent(student)} className="p-2 text-stone-400 hover:bg-blue-50 hover:text-blue-600 rounded-full transition-colors"><Edit2 size={18} /></button>
+                    <button onClick={() => handleDelete(student.id)} disabled={isSaving} className="p-2 text-[#800000] hover:bg-red-50 hover:text-red-700 rounded-full transition-colors disabled:opacity-50"><Trash2 size={18} /></button>
+                  </>
                 )}
               </div>
             </div>
           </motion.div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {(isAdding || editingStudent) && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full border border-stone-100 overflow-hidden"
+            >
+              <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-off-white/50">
+                <h2 className="text-2xl font-bold text-[#800000]">{editingStudent ? 'تعديل بيانات طالب' : 'إضافة طالب جديد'}</h2>
+                <button onClick={() => { setIsAdding(false); setEditingStudent(null); setPhotoBase64(null); }} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
+                  <X size={24} className="text-stone-400" />
+                </button>
+              </div>
+              
+              <form onSubmit={editingStudent ? handleEditStudent : handleAddStudent} className="p-8 space-y-6">
+                <div className="flex justify-center mb-6">
+                  <div className="relative group">
+                    <div className="w-32 h-32 rounded-3xl bg-stone-100 border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden">
+                      {photoBase64 || editingStudent?.photoUrl ? (
+                        <img src={photoBase64 || editingStudent?.photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <UserPlus size={40} className="text-stone-300" />
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handlePhotoUpload}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="absolute -bottom-2 -right-2 bg-gold text-white p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                      <Edit2 size={16} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">اسم الطالب</label>
+                    <input name="name" defaultValue={editingStudent?.name} required className="input-clean text-[#333333]" placeholder="الاسم الرباعي" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">المرحلة / الفرقة</label>
+                    <select name="gradeLevel" defaultValue={editingStudent?.gradeLevel} required className="input-clean text-[#333333]">
+                      <option value="الفرقة الأولى">الفرقة الأولى</option>
+                      <option value="الفرقة الثانية">الفرقة الثانية</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">رقم الهاتف</label>
+                    <input name="phone" defaultValue={editingStudent?.phone} className="input-clean text-[#333333]" placeholder="01..." />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">اسم ولي الأمر</label>
+                      <input name="parentName" defaultValue={editingStudent?.parentName} className="input-clean text-[#333333]" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">هاتف ولي الأمر</label>
+                      <input name="parentPhone" defaultValue={editingStudent?.parentPhone} className="input-clean text-[#333333]" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">ملاحظات</label>
+                    <textarea name="notes" defaultValue={editingStudent?.notes} rows={3} className="input-clean text-[#333333]" />
+                  </div>
+                </div>
+                
+                <div className="pt-4 flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => { setIsAdding(false); setEditingStudent(null); setPhotoBase64(null); }}
+                    className="flex-1 py-4 rounded-xl font-bold text-[#333333] hover:bg-stone-50 transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 btn-primary py-4 flex items-center justify-center gap-2 disabled:opacity-70"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      <>
+                        <Save size={20} />
+                        {editingStudent ? 'تحديث البيانات' : 'حفظ الطالب'}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

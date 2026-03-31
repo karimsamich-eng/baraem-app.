@@ -23,7 +23,8 @@ import {
   CheckCircle2, XCircle, Clock, MoreVertical, Edit2, Trash2, ChevronRight, 
   ArrowLeft, Save, Filter, Download, UserPlus, BookOpen, AlertCircle, Star, Heart,
   FileText, Eye, EyeOff, Menu, X, Upload, Image as ImageIcon,
-  CheckCircle, Info, MessageCircle, Sun, Moon, UserCog, Bell, AlertTriangle, Music
+  CheckCircle, Info, MessageCircle, Sun, Moon, UserCog, Bell, AlertTriangle, Music,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -429,7 +430,7 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
           )}
         </div>
         <h1 className="text-3xl font-bold mb-2 text-royal-red dark:text-gold">خدمة البراعم</h1>
-        <p className="text-stone-500 dark:text-dark-muted mb-8 font-serif italic"> مت 19 : 14"دعوا الأولاد يأتون إليّ"</p>
+        <p className="text-stone-700 dark:text-dark-muted mb-8 font-serif italic"> مت 19 : 14"دعوا الأولاد يأتون إليّ"</p>
         
         <form onSubmit={handleSubmit} className="space-y-4 text-right">
           <div className="space-y-1">
@@ -469,9 +470,14 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
           <button 
             type="submit"
             disabled={loading}
-            className="w-full btn-primary mt-4 flex items-center justify-center gap-2"
+            className="w-full btn-primary mt-4 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {loading ? 'جاري التحميل...' : 'تسجيل الدخول'}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                جاري التحميل...
+              </>
+            ) : 'تسجيل الدخول'}
           </button>
 
           <div className="relative my-6">
@@ -486,17 +492,27 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
           <button 
             type="button"
             onClick={async () => {
+              if (loading) return;
               setLoading(true);
-              const success = await login('guest', '');
-              if (success) {
-                setActiveTab('hub');
+              try {
+                const success = await login('guest', '');
+                if (success) {
+                  setActiveTab('hub');
+                }
+              } catch (err) {
+                console.error('Guest login failed:', err);
+              } finally {
+                setLoading(false);
               }
-              setLoading(false);
             }}
             disabled={loading}
-            className="w-full py-3 px-4 rounded-full border-2 border-royal-red dark:border-gold text-royal-red dark:text-gold font-bold hover:bg-red-50 dark:hover:bg-gold/10 transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 rounded-full border-2 border-royal-red dark:border-gold text-royal-red dark:text-gold font-bold hover:bg-red-50 dark:hover:bg-gold/10 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            <UserPlus size={20} />
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-royal-red/30 border-t-royal-red rounded-full animate-spin" />
+            ) : (
+              <UserPlus size={20} />
+            )}
             دخول كزائر / تصفح حر
           </button>
         </form>
@@ -546,6 +562,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
         <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-10">
             <button 
+              type="button"
               onClick={() => {
                 setActiveTab('hub');
                 setIsOpen(false);
@@ -584,6 +601,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
             {menuItems.map((item) => (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => {
                   setActiveTab(item.id);
                   setIsOpen(false);
@@ -591,7 +609,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                   activeTab === item.id 
                     ? 'bg-[#800000] text-white shadow-lg' 
-                    : 'text-stone-500 dark:text-dark-muted hover:bg-stone-50 dark:hover:bg-dark-bg hover:text-[#800000] dark:hover:text-gold'
+                    : 'text-stone-700 dark:text-dark-muted hover:bg-stone-50 dark:hover:bg-dark-bg hover:text-[#800000] dark:hover:text-gold'
                 }`}
               >
                 <item.icon size={20} />
@@ -619,6 +637,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={logout}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors font-bold border border-transparent hover:border-red-100 dark:hover:border-red-900/30"
               >
@@ -628,6 +647,7 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
             </>
           ) : (
             <button 
+              type="button"
               onClick={() => setActiveTab('login')}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[#800000] dark:text-gold hover:bg-red-50 dark:hover:bg-dark-bg transition-colors font-bold border border-transparent hover:border-red-100 dark:hover:border-dark-border"
             >
@@ -647,6 +667,7 @@ const PracticalService = () => {
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
   const [dailyServices, setDailyServices] = useState<any[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingService, setEditingService] = useState<any | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -680,6 +701,8 @@ const PracticalService = () => {
 
   const handleAddService = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
     const studentId = formData.get('studentId') as string;
 
@@ -688,6 +711,7 @@ const PracticalService = () => {
       return;
     }
 
+    setIsSaving(true);
     const serviceData = {
       studentId,
       serviceType: formData.get('serviceType') as string,
@@ -732,6 +756,8 @@ const PracticalService = () => {
     } catch (error) {
       handleFirestoreError(error, editingService ? OperationType.UPDATE : OperationType.CREATE, 'practical_service');
       addToast('فشل حفظ الخدمة', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -740,6 +766,7 @@ const PracticalService = () => {
       title: 'حذف الخدمة',
       message: 'هل أنت متأكد من حذف هذه الخدمة؟',
       onConfirm: async () => {
+        setIsSaving(true);
         try {
           await deleteDoc(doc(db, 'practical_service', service.id));
           const studentRef = doc(db, 'students', service.studentId);
@@ -748,6 +775,8 @@ const PracticalService = () => {
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'practical_service');
           addToast('فشل حذف الخدمة', 'error');
+        } finally {
+          setIsSaving(false);
         }
       }
     });
@@ -920,7 +949,7 @@ const PracticalService = () => {
               
               <form onSubmit={handleAddService} className="p-6 space-y-5">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الطالب</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الطالب</label>
                   <select name="studentId" defaultValue={editingService?.studentId || ''} required className="input-clean">
                     <option value="">اختر الطالب...</option>
                     {students.map(s => (
@@ -929,20 +958,20 @@ const PracticalService = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">نوع الخدمة</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">نوع الخدمة</label>
                   <input name="serviceType" type="text" value="خدمة عملية" readOnly className="input-clean bg-stone-50" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">ملاحظات (الوصف)</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">ملاحظات (الوصف)</label>
                   <input name="description" defaultValue={editingService?.description || ''} required className="input-clean" placeholder="ماذا فعل الطالب؟" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التقييم (النقاط)</label>
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التقييم (النقاط)</label>
                     <input name="points" type="number" min="20" max="20" required className="input-clean bg-stone-50" readOnly defaultValue={20} />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التاريخ</label>
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التاريخ</label>
                     <input name="date" type="date" defaultValue={editingService?.date || reportDate} required className="input-clean" />
                   </div>
                 </div>
@@ -950,15 +979,21 @@ const PracticalService = () => {
                   <button 
                     type="button"
                     onClick={() => { setIsAdding(false); setEditingService(null); }}
-                    className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-stone-50 transition-colors"
+                    className="flex-1 py-3 rounded-xl font-bold text-stone-700 hover:bg-stone-50 transition-colors"
                   >
                     إلغاء
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 btn-primary py-3"
+                    disabled={isSaving}
+                    className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-70"
                   >
-                    حفظ التقييم
+                    {isSaving ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : 'حفظ التقييم'}
                   </button>
                 </div>
               </form>
@@ -1084,7 +1119,7 @@ const LibraryPage = () => {
               key={resource.id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="card-clean group overflow-hidden border-t-4 border-t-gold hover:shadow-xl transition-all"
+              className="interactive-card card-clean group overflow-hidden border-t-4 border-t-gold hover:shadow-xl transition-all"
             >
               <div className="p-8">
                 <div className="flex justify-between items-start mb-6">
@@ -1131,6 +1166,7 @@ const LibraryPage = () => {
 const ResourceManager = () => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -1178,12 +1214,15 @@ const ResourceManager = () => {
       title: 'حذف مورد',
       message: 'هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
+        setIsSaving(true);
         try {
           await deleteDoc(doc(db, 'resources', id));
           addToast('تم حذف المورد بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'resources');
           addToast('فشل حذف المورد', 'error');
+        } finally {
+          setIsSaving(false);
         }
       }
     });
@@ -1191,7 +1230,8 @@ const ResourceManager = () => {
 
   const handleEditResource = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editingResource) return;
+    if (!editingResource || isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
     const updatedResource = {
       title: formData.get('title') as string,
@@ -1202,6 +1242,7 @@ const ResourceManager = () => {
       updatedBy: user?.username || '',
     };
 
+    setIsSaving(true);
     try {
       await updateDoc(doc(db, 'resources', editingResource.id), updatedResource);
       setEditingResource(null);
@@ -1209,6 +1250,8 @@ const ResourceManager = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'resources');
       addToast('فشل تحديث المورد', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1295,11 +1338,11 @@ const ResourceManager = () => {
               
               <form onSubmit={handleAddResource} className="p-8 space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">عنوان المورد</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">عنوان المورد</label>
                   <input name="title" required className="input-clean" placeholder="مثلاً: لحن آجيوس" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التصنيف</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التصنيف</label>
                   <select name="category" required className="input-clean">
                     <option value="Menahej">منهج</option>
                     <option value="Alhan">ألحان</option>
@@ -1307,20 +1350,33 @@ const ResourceManager = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الفرقة</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الفرقة</label>
                   <select name="squad" required className="input-clean">
                     <option value="الفرقة الأولى">الفرقة الأولى</option>
                     <option value="الفرقة الثانية">الفرقة الثانية</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">رابط المورد (Link/Base64)</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">رابط المورد (Link/Base64)</label>
                   <input name="link" required className="input-clean" placeholder="https://..." />
                 </div>
                 
-                <button type="submit" className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2">
-                  <Save size={20} />
-                  حفظ المورد
+                <button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={20} />
+                      حفظ المورد
+                    </>
+                  )}
                 </button>
               </form>
             </motion.div>
@@ -1343,11 +1399,11 @@ const ResourceManager = () => {
               
               <form onSubmit={handleEditResource} className="p-8 space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">عنوان المورد</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">عنوان المورد</label>
                   <input name="title" defaultValue={editingResource.title} required className="input-clean" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التصنيف</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التصنيف</label>
                   <select name="category" defaultValue={editingResource.category} required className="input-clean">
                     <option value="Menahej">منهج</option>
                     <option value="Alhan">ألحان</option>
@@ -1355,20 +1411,33 @@ const ResourceManager = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الفرقة</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الفرقة</label>
                   <select name="squad" defaultValue={editingResource.squad} required className="input-clean">
                     <option value="الفرقة الأولى">الفرقة الأولى</option>
                     <option value="الفرقة الثانية">الفرقة الثانية</option>
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">رابط المورد</label>
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">رابط المورد</label>
                   <input name="link" defaultValue={editingResource.link} required className="input-clean" />
                 </div>
                 
-                <button type="submit" className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2">
-                  <Save size={20} />
-                  تحديث المورد
+                <button 
+                  type="submit" 
+                  disabled={isSaving}
+                  className="btn-primary w-full py-4 text-lg flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={20} />
+                      تحديث المورد
+                    </>
+                  )}
                 </button>
               </form>
             </motion.div>
@@ -1389,6 +1458,7 @@ const StudentList = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudentProfile, setSelectedStudentProfile] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1426,6 +1496,8 @@ const StudentList = () => {
 
   const handleAddStudent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
     const newStudent = {
       name: formData.get('name') as string,
@@ -1443,6 +1515,7 @@ const StudentList = () => {
       practicalPoints: 0,
     };
 
+    setIsSaving(true);
     try {
       const docRef = doc(collection(db, 'students'));
       await setDoc(docRef, { ...newStudent, id: docRef.id });
@@ -1452,12 +1525,15 @@ const StudentList = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'students');
       addToast('فشل إضافة الطالب', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleEditStudent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editingStudent) return;
+    if (!editingStudent || isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
     const updatedStudent = {
       name: formData.get('name') as string,
@@ -1469,6 +1545,7 @@ const StudentList = () => {
       photoUrl: photoBase64 || editingStudent.photoUrl || null,
     };
 
+    setIsSaving(true);
     try {
       await updateDoc(doc(db, 'students', editingStudent.id), updatedStudent);
       setEditingStudent(null);
@@ -1477,6 +1554,8 @@ const StudentList = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'students');
       addToast('فشل تحديث بيانات الطالب', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1485,12 +1564,15 @@ const StudentList = () => {
       title: 'حذف طالب',
       message: 'هل أنت متأكد من حذف هذا الطالب؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
+        setIsSaving(true);
         try {
           await deleteDoc(doc(db, 'students', id));
           addToast('تم حذف الطالب بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'students');
           addToast('فشل حذف الطالب', 'error');
+        } finally {
+          setIsSaving(false);
         }
       }
     });
@@ -1654,47 +1736,55 @@ const StudentList = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الاسم الكامل</label>
-                    <input name="name" defaultValue={editingStudent?.name} required className="input-clean" />
+                    <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">الاسم الكامل</label>
+                    <input name="name" defaultValue={editingStudent?.name} required className="input-clean text-[#333333]" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">المرحلة الدراسية</label>
-                    <select name="gradeLevel" defaultValue={editingStudent?.gradeLevel} required className="input-clean">
+                    <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">المرحلة الدراسية</label>
+                    <select name="gradeLevel" defaultValue={editingStudent?.gradeLevel} required className="input-clean text-[#333333]">
                       <option value="الفرقة الأولى">الفرقة الأولى</option>
                       <option value="الفرقة الثانية">الفرقة الثانية</option>
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">هاتف الطالب</label>
-                    <input name="phone" defaultValue={editingStudent?.phone} className="input-clean" />
+                    <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">هاتف الطالب</label>
+                    <input name="phone" defaultValue={editingStudent?.phone} className="input-clean text-[#333333]" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">اسم ولي الأمر</label>
-                    <input name="parentName" defaultValue={editingStudent?.parentName} className="input-clean" />
+                    <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">اسم ولي الأمر</label>
+                    <input name="parentName" defaultValue={editingStudent?.parentName} className="input-clean text-[#333333]" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">هاتف ولي الأمر</label>
-                    <input name="parentPhone" defaultValue={editingStudent?.parentPhone} className="input-clean" />
+                    <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">هاتف ولي الأمر</label>
+                    <input name="parentPhone" defaultValue={editingStudent?.parentPhone} className="input-clean text-[#333333]" />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">ملاحظات</label>
-                  <textarea name="notes" defaultValue={editingStudent?.notes} rows={3} className="input-clean" />
+                  <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">ملاحظات</label>
+                  <textarea name="notes" defaultValue={editingStudent?.notes} rows={3} className="input-clean text-[#333333]" />
                 </div>
                 
                 <div className="pt-4 flex gap-4">
                   <button 
                     type="button"
                     onClick={() => { setIsAdding(false); setEditingStudent(null); }}
-                    className="flex-1 py-4 rounded-xl font-bold text-stone-500 hover:bg-stone-50 transition-colors"
+                    className="flex-1 py-4 rounded-xl font-bold text-[#333333] hover:bg-stone-50 transition-colors"
                   >
                     إلغاء
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 btn-primary"
+                    disabled={isSaving}
+                    className="flex-1 btn-primary flex items-center justify-center gap-2"
                   >
-                    {editingStudent ? 'تحديث البيانات' : 'حفظ الطالب'}
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      editingStudent ? 'تحديث البيانات' : 'حفظ الطالب'
+                    )}
                   </button>
                 </div>
               </form>
@@ -1712,6 +1802,7 @@ const AttendanceTracker = () => {
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({});
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
   const [notePrompt, setNotePrompt] = useState<{ studentId: string, status: 'absent' | 'late' } | null>(null);
   const [tempNote, setTempNote] = useState('');
   const { user } = useAuth();
@@ -1745,6 +1836,7 @@ const AttendanceTracker = () => {
   }, [date]);
 
   const toggleAttendance = async (studentId: string, status: 'present' | 'absent' | 'late', note?: string) => {
+    if (isSaving[studentId]) return;
     const existing = attendance[studentId];
     
     // Prompt for note if marking absent/late and not toggling off
@@ -1754,6 +1846,7 @@ const AttendanceTracker = () => {
       return;
     }
 
+    setIsSaving(prev => ({ ...prev, [studentId]: true }));
     try {
       if (existing && existing.status === status) {
         // Toggle off: Remove record
@@ -1788,6 +1881,8 @@ const AttendanceTracker = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'attendance');
       addToast('فشل في التحديث', 'error');
+    } finally {
+      setIsSaving(prev => ({ ...prev, [studentId]: false }));
     }
   };
 
@@ -1865,7 +1960,7 @@ const AttendanceTracker = () => {
             <motion.div 
               key={student.id}
               layout
-              className="card-clean p-6 flex flex-col justify-between hover:border-gold transition-colors"
+              className="interactive-card card-clean p-6 flex flex-col justify-between hover:border-gold transition-colors"
             >
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 bg-[#800000]/10 text-[#800000] rounded-xl flex items-center justify-center font-bold text-lg border border-[#800000]/20">
@@ -1888,38 +1983,38 @@ const AttendanceTracker = () => {
               <div className="flex gap-2">
                 <button 
                   onClick={() => !!user && toggleAttendance(student.id, 'present')}
-                  disabled={false}
+                  disabled={isSaving[student.id]}
                   className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border ${
                     record?.status === 'present' 
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' 
                       : 'bg-white text-stone-400 border-stone-200 hover:border-emerald-600 hover:text-emerald-600'
-                  } ${false ? 'cursor-default opacity-80' : ''}`}
+                  } ${isSaving[student.id] ? 'cursor-default opacity-80' : ''}`}
                 >
-                  <CheckCircle2 size={18} />
+                  {isSaving[student.id] && record?.status === 'present' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 size={18} />}
                   حاضر
                 </button>
                 <button 
                   onClick={() => !!user && toggleAttendance(student.id, 'late')}
-                  disabled={false}
+                  disabled={isSaving[student.id]}
                   className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border ${
                     record?.status === 'late' 
                       ? 'bg-amber-500 text-white border-amber-500 shadow-md' 
                       : 'bg-white text-stone-400 border-stone-200 hover:border-amber-500 hover:text-amber-500'
-                  } ${false ? 'cursor-default opacity-80' : ''}`}
+                  } ${isSaving[student.id] ? 'cursor-default opacity-80' : ''}`}
                 >
-                  <Clock size={18} />
+                  {isSaving[student.id] && record?.status === 'late' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock size={18} />}
                   متأخر
                 </button>
                 <button 
                   onClick={() => !!user && toggleAttendance(student.id, 'absent')}
-                  disabled={false}
+                  disabled={isSaving[student.id]}
                   className={`flex-1 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border ${
                     record?.status === 'absent' 
                       ? 'bg-red-600 text-white border-red-600 shadow-md' 
                       : 'bg-white text-stone-400 border-stone-200 hover:border-red-600 hover:text-red-600'
-                  } ${false ? 'cursor-default opacity-80' : ''}`}
+                  } ${isSaving[student.id] ? 'cursor-default opacity-80' : ''}`}
                 >
-                  <XCircle size={18} />
+                  {isSaving[student.id] && record?.status === 'absent' ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle size={18} />}
                   غائب
                 </button>
               </div>
@@ -1944,7 +2039,7 @@ const AttendanceTracker = () => {
                   <MessageCircle size={24} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-stone-900">إضافة ملاحظة</h3>
+                  <h3 className="text-xl font-bold text-[#333333]">إضافة ملاحظة</h3>
                   <p className="text-stone-500 text-sm">أضف سبب الغياب أو التأخير (اختياري)</p>
                 </div>
               </div>
@@ -1953,20 +2048,28 @@ const AttendanceTracker = () => {
                 value={tempNote}
                 onChange={(e) => setTempNote(e.target.value)}
                 placeholder="اكتب الملاحظة هنا..."
-                className="w-full h-32 p-4 rounded-2xl border border-stone-200 focus:ring-2 focus:ring-[#800000] focus:border-transparent resize-none mb-6 text-right"
+                className="w-full h-32 p-4 rounded-2xl border border-stone-200 focus:ring-2 focus:ring-[#800000] focus:border-transparent resize-none mb-6 text-right text-[#333333]"
                 dir="rtl"
               />
 
               <div className="flex gap-4">
                 <button
                   onClick={() => toggleAttendance(notePrompt.studentId, notePrompt.status, tempNote)}
-                  className="flex-1 py-4 bg-[#800000] text-white rounded-2xl font-bold hover:bg-[#800000]/90 transition-all shadow-lg shadow-[#800000]/20"
+                  disabled={isSaving[notePrompt.studentId]}
+                  className="flex-1 py-4 bg-[#800000] text-white rounded-2xl font-bold hover:bg-[#800000]/90 transition-all shadow-lg shadow-[#800000]/20 flex items-center justify-center gap-2"
                 >
-                  حفظ
+                  {isSaving[notePrompt.studentId] ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    'حفظ'
+                  )}
                 </button>
                 <button
                   onClick={() => setNotePrompt(null)}
-                  className="flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
+                  className="flex-1 py-4 bg-stone-100 text-[#333333] rounded-2xl font-bold hover:bg-stone-200 transition-all"
                 >
                   إلغاء
                 </button>
@@ -1986,6 +2089,7 @@ const TayoScoring = () => {
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingGrade, setEditingGrade] = useState<GradeRecord | null>(null);
   const [topStudents, setTopStudents] = useState<{name: string, totalScore: number}[]>([]);
   const { user } = useAuth();
@@ -2106,7 +2210,8 @@ const TayoScoring = () => {
 
   const handleAddGrade = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedStudent) return;
+    if (!selectedStudent || isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
     const newGrade = {
       studentId: selectedStudent.id,
@@ -2118,6 +2223,7 @@ const TayoScoring = () => {
       updatedBy: user?.username || '',
     };
 
+    setIsSaving(true);
     try {
       const studentRef = doc(db, 'students', selectedStudent.id);
       
@@ -2192,6 +2298,8 @@ const TayoScoring = () => {
     } catch (error) {
       handleFirestoreError(error, editingGrade ? OperationType.UPDATE : OperationType.CREATE, 'grades');
       addToast('فشل حفظ التقييم', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2200,6 +2308,7 @@ const TayoScoring = () => {
       title: 'حذف تقييم',
       message: 'هل أنت متأكد من حذف هذا التقييم؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
+        setIsSaving(true);
         try {
           await deleteDoc(doc(db, 'grades', grade.id));
           
@@ -2229,6 +2338,8 @@ const TayoScoring = () => {
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'grades');
           addToast('فشل حذف التقييم', 'error');
+        } finally {
+          setIsSaving(false);
         }
       }
     });
@@ -2277,7 +2388,7 @@ const TayoScoring = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="card-clean p-4 border-t-4 border-t-gold text-center"
+              className="interactive-card card-clean p-4 border-t-4 border-t-gold text-center"
             >
               <div className="w-10 h-10 bg-gold/10 text-gold rounded-full flex items-center justify-center mx-auto mb-3 font-bold">
                 {i + 1}
@@ -2327,7 +2438,7 @@ const TayoScoring = () => {
         <div className="lg:col-span-2">
           {selectedStudent ? (
             <div className="space-y-8">
-              <div className="card-clean p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-r-4 border-r-gold">
+              <div className="interactive-card card-clean p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-r-4 border-r-gold">
                 <div>
                   <h2 className="text-2xl md:text-3xl font-bold text-stone-900">{selectedStudent.name}</h2>
                   <p className="text-stone-400 font-medium">{selectedStudent.gradeLevel}</p>
@@ -2434,8 +2545,8 @@ const TayoScoring = () => {
               
               <form onSubmit={handleAddGrade} className="p-8 space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">نوع التقييم</label>
-                  <select name="subject" required className="input-clean" defaultValue={editingGrade?.subject || ""} onChange={(e) => {
+                  <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">نوع التقييم</label>
+                  <select name="subject" required className="input-clean text-[#333333]" defaultValue={editingGrade?.subject || ""} onChange={(e) => {
                     const scoreInput = e.currentTarget.form?.elements.namedItem('score') as HTMLInputElement;
                     if (scoreInput) {
                       if (e.target.value === 'حضور') scoreInput.value = '1';
@@ -2458,31 +2569,39 @@ const TayoScoring = () => {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">الدرجة</label>
-                  <input name="score" type="number" min="0" required className="input-clean bg-stone-50" readOnly={user?.role === 'attendance'} defaultValue={editingGrade?.score || ""} />
+                  <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">الدرجة</label>
+                  <input name="score" type="number" min="0" required className="input-clean bg-stone-50 text-[#333333]" readOnly={user?.role === 'attendance'} defaultValue={editingGrade?.score || ""} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">التاريخ</label>
-                  <input name="date" type="date" defaultValue={editingGrade?.date || new Date().toISOString().split('T')[0]} required className="input-clean" />
+                  <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">التاريخ</label>
+                  <input name="date" type="date" defaultValue={editingGrade?.date || new Date().toISOString().split('T')[0]} required className="input-clean text-[#333333]" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wider mr-1">ملاحظات</label>
-                  <textarea name="notes" rows={2} className="input-clean" defaultValue={editingGrade?.notes || ""} />
+                  <label className="text-xs font-bold text-[#333333] uppercase tracking-wider mr-1">ملاحظات</label>
+                  <textarea name="notes" rows={2} className="input-clean text-[#333333]" defaultValue={editingGrade?.notes || ""} />
                 </div>
                 
                 <div className="pt-4 flex gap-4">
                   <button 
                     type="button"
                     onClick={() => { setIsAdding(false); setEditingGrade(null); }}
-                    className="flex-1 py-4 rounded-xl font-bold text-stone-500 hover:bg-stone-50 transition-colors"
+                    className="flex-1 py-4 rounded-xl font-bold text-[#333333] hover:bg-stone-50 transition-colors"
                   >
                     إلغاء
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 btn-primary"
+                    disabled={isSaving}
+                    className="flex-1 btn-primary flex items-center justify-center gap-2"
                   >
-                    {editingGrade ? 'حفظ التعديلات' : 'حفظ التقييم'}
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      editingGrade ? 'حفظ التعديلات' : 'حفظ التقييم'
+                    )}
                   </button>
                 </div>
               </form>
@@ -2633,7 +2752,7 @@ const EventsPage = () => {
           <motion.div 
             key={event.id}
             whileHover={{ y: -10 }}
-            className="bg-white rounded-[2rem] p-8 shadow-sm hover:shadow-2xl transition-all border border-stone-100 relative overflow-hidden group"
+            className="interactive-card bg-white rounded-[2rem] p-8 shadow-sm hover:shadow-2xl transition-all border border-stone-100 relative overflow-hidden group"
           >
             <div className="absolute top-0 right-0 w-24 h-24 bg-gold/5 rounded-bl-[4rem] -mr-8 -mt-8 transition-transform group-hover:scale-150" />
             
@@ -2822,7 +2941,7 @@ function StaffPage() {
           <motion.div 
             key={member.id}
             whileHover={{ y: -10 }}
-            className={`bg-white rounded-[2rem] p-8 flex flex-col items-center text-center shadow-sm hover:shadow-2xl transition-all border-2 group relative overflow-hidden mx-auto w-full max-w-2xl ${
+            className={`interactive-card bg-white rounded-[2rem] p-8 flex flex-col items-center text-center shadow-sm hover:shadow-2xl transition-all border-2 group relative overflow-hidden mx-auto w-full max-w-2xl ${
               member.role === 'القمص المسئول' ? 'border-[#800000] scale-105' :
               member.role === 'القس المسئول' ? 'border-gold' :
               'border-stone-100'
@@ -2937,8 +3056,9 @@ function StaffPage() {
                 referrerPolicy="no-referrer"
               />
               <button 
+                type="button"
                 onClick={() => setViewPhoto(null)}
-                className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 hover:text-red-400 rounded-full transition-colors"
+                className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 hover:text-red-400 rounded-full transition-all active:scale-90"
               >
                 <X size={32} />
               </button>
@@ -2970,6 +3090,7 @@ const ReportsInbox = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -3026,12 +3147,15 @@ const ReportsInbox = () => {
       title: 'حذف التقرير',
       message: 'هل أنت متأكد من حذف هذا التقرير نهائياً؟',
       onConfirm: async () => {
+        setIsDeleting(id);
         try {
           await deleteDoc(doc(db, 'reports', id));
           addToast('تم حذف التقرير بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'reports');
           addToast('فشل حذف التقرير', 'error');
+        } finally {
+          setIsDeleting(null);
         }
       }
     });
@@ -3048,7 +3172,7 @@ const ReportsInbox = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reports.map((report) => (
-          <div key={report.id} className="card-clean p-6 flex items-start gap-4 hover:shadow-md transition-shadow">
+          <div key={report.id} className="interactive-card card-clean p-6 flex items-start gap-4 hover:shadow-md transition-shadow">
             <div className={`p-3 rounded-2xl ${
               report.type === 'attendance' ? 'bg-blue-50 text-blue-600' :
               report.type === 'tayo' ? 'bg-gold/10 text-gold' : 'bg-red-50 text-[#800000]'
@@ -3065,8 +3189,8 @@ const ReportsInbox = () => {
                 <div className="flex gap-2">
                   <button 
                     onClick={() => previewReport(report)}
-                    disabled={processingId === report.id}
-                    className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
+                    disabled={processingId === report.id || !!isDeleting}
+                    className="p-2 bg-stone-100 text-[#333333] rounded-lg hover:bg-emerald-50 hover:text-emerald-600 transition-colors disabled:opacity-50"
                     title="معاينة"
                   >
                     {processingId === report.id ? (
@@ -3077,7 +3201,7 @@ const ReportsInbox = () => {
                   </button>
                   <button 
                     onClick={() => downloadReport(report)}
-                    disabled={processingId === report.id}
+                    disabled={processingId === report.id || !!isDeleting}
                     className="p-2 bg-stone-900 text-white rounded-lg hover:bg-stone-800 transition-colors disabled:opacity-50"
                     title="تحميل"
                   >
@@ -3089,10 +3213,15 @@ const ReportsInbox = () => {
                   </button>
                   <button 
                     onClick={() => handleDeleteReport(report.id)}
-                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors"
+                    disabled={!!isDeleting}
+                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors disabled:opacity-50"
                     title="حذف"
                   >
-                    <Trash2 size={16} />
+                    {isDeleting === report.id ? (
+                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -3286,6 +3415,8 @@ export const StaffManager = () => {
   };
 
   const handleUpdateStaffImage = async (id: string, newBase64: string) => {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       const response = await fetch(newBase64);
       const blob = await response.blob();
@@ -3299,6 +3430,8 @@ export const StaffManager = () => {
     } catch (error) {
       console.error('Update staff image failed:', error);
       addToast('فشل تحديث الصورة', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -3337,6 +3470,38 @@ export const StaffManager = () => {
     const formData = new FormData(e.currentTarget);
     let imageUrl = photoBase64 || editingMember.imageUrl || null;
 
+    const updatedMember = {
+      name: formData.get('name') as string,
+      responsibility: formData.get('responsibility') as string,
+      role: formData.get('role') as any,
+      squad: formData.get('squad') as any,
+      rating: rating,
+      imageUrl: imageUrl,
+      updatedAt: new Date().toISOString(),
+      updatedBy: user?.username || '',
+    };
+
+    // Plan C: Local-first fallback
+    const saveToLocalStorage = () => {
+      try {
+        const localStaff = JSON.parse(localStorage.getItem('pending_staff_updates') || '[]');
+        localStorage.setItem('pending_staff_updates', JSON.stringify([...localStaff, { ...updatedMember, id: editingMember.id, isPending: true }]));
+        setStaff(prev => prev.map(m => m.id === editingMember.id ? { ...m, ...updatedMember, isPending: true } : m));
+        addToast('تم الحفظ محلياً (فشل الاتصال بالخادم)', 'info');
+        setEditingMember(null);
+        setIsSaving(false);
+      } catch (err) {
+        console.error('Local storage fallback failed:', err);
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      if (isSaving) {
+        console.warn('Firebase update timed out, falling back to local storage');
+        saveToLocalStorage();
+      }
+    }, 5000);
+
     try {
       if (photoBase64 && photoBase64.startsWith('data:image')) {
         const response = await fetch(photoBase64);
@@ -3344,28 +3509,21 @@ export const StaffManager = () => {
         const storageRef = ref(storage, `staff/${editingMember.id}`);
         await uploadBytes(storageRef, blob);
         imageUrl = await getDownloadURL(storageRef);
+        updatedMember.imageUrl = imageUrl;
       }
 
-      const updatedMember = {
-        name: formData.get('name') as string,
-        responsibility: formData.get('responsibility') as string,
-        role: formData.get('role') as any,
-        squad: formData.get('squad') as any,
-        rating: rating,
-        imageUrl: imageUrl,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user?.username || '',
-      };
-
       await updateDoc(doc(db, 'staff', editingMember.id), updatedMember);
+      clearTimeout(timeout);
       setEditingMember(null);
       setPhotoBase64(null);
       setRating(5);
       addToast('تم تحديث بيانات العضو بنجاح', 'success');
     } catch (error) {
+      clearTimeout(timeout);
       console.error('Edit member failed:', error);
       handleFirestoreError(error, OperationType.UPDATE, 'staff');
-      addToast('فشل تحديث بيانات العضو', 'error');
+      addToast('فشل تحديث بيانات العضو - سيتم المحاولة لاحقاً', 'error');
+      saveToLocalStorage();
     } finally {
       setIsSaving(false);
     }
@@ -3399,7 +3557,11 @@ export const StaffManager = () => {
             <option value="الثانية">الفرقة الثانية</option>
             <option value="عام">عام</option>
           </select>
-          <button onClick={() => { setIsAdding(true); setRating(5); }} className="btn-primary flex items-center gap-2 whitespace-nowrap">
+          <button 
+            type="button"
+            onClick={() => { setIsAdding(true); setRating(5); }} 
+            className="btn-primary flex items-center gap-2 whitespace-nowrap active:scale-95 transition-all"
+          >
             <Plus size={20} />
             إضافة عضو
           </button>
@@ -3408,7 +3570,7 @@ export const StaffManager = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredStaff.map((member) => (
-          <div key={member.id} className="card-clean p-6 flex items-center gap-4 group">
+          <div key={member.id} className="interactive-card card-clean p-6 flex items-center gap-4 group">
             <div 
               className="w-16 h-16 rounded-full overflow-hidden shrink-0 border-2 border-stone-50 group-hover:border-gold transition-all cursor-pointer relative"
             >
@@ -3420,15 +3582,17 @@ export const StaffManager = () => {
                   {user?.role === 'coordinator' && (
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                       <button 
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); setEditingImage(member); }}
-                        className="w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-[#FFD700] hover:bg-black/80 transition-all"
+                        className="w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-[#FFD700] hover:bg-black/80 transition-all active:scale-90"
                         title="تعديل الصورة"
                       >
                         <Edit2 size={12} />
                       </button>
                       <button 
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); handleDeleteStaffImage(member.id, member.imageUrl!); }}
-                        className="w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-red-400 hover:bg-black/80 transition-all"
+                        className="w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-red-400 hover:bg-black/80 transition-all active:scale-90"
                         title="حذف الصورة"
                       >
                         <Trash2 size={12} />
@@ -3463,10 +3627,20 @@ export const StaffManager = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { setEditingMember(member); setPhotoBase64(null); setRating(member.rating); }} className="p-2 text-stone-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
+              <button 
+                type="button"
+                onClick={() => { setEditingMember(member); setPhotoBase64(null); setRating(member.rating); }} 
+                className="p-2 text-stone-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-all active:scale-95"
+                title="تعديل"
+              >
                 <Edit2 size={18} />
               </button>
-              <button onClick={() => handleDelete(member.id, member.imageUrl)} className="p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
+              <button 
+                type="button"
+                onClick={() => handleDelete(member.id, member.imageUrl)} 
+                className="p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all active:scale-95"
+                title="حذف"
+              >
                 <Trash2 size={18} />
               </button>
             </div>
@@ -3499,8 +3673,9 @@ export const StaffManager = () => {
                 referrerPolicy="no-referrer"
               />
               <button 
+                type="button"
                 onClick={() => setViewPhoto(null)}
-                className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 hover:text-red-400 rounded-full transition-colors"
+                className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 hover:text-red-400 rounded-full transition-all active:scale-90"
               >
                 <X size={32} />
               </button>
@@ -3530,7 +3705,7 @@ export const StaffManager = () => {
                     ) : (
                       <ImageIcon className="text-stone-300" size={32} />
                     )}
-                    <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer rounded-full">
+                    <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer rounded-full active:scale-95">
                       <Upload className="text-white" size={20} />
                       <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                         const file = e.target.files?.[0];
@@ -3567,16 +3742,16 @@ export const StaffManager = () => {
 
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700 mr-1">الاسم</label>
-                    <input name="name" defaultValue={editingMember?.name} required className="input-clean" />
+                    <label className="text-xs font-bold text-[#333333] mr-1">الاسم</label>
+                    <input name="name" defaultValue={editingMember?.name} required className="input-clean text-[#333333]" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700 mr-1">المسئولية</label>
-                    <input name="responsibility" defaultValue={editingMember?.responsibility} required className="input-clean" />
+                    <label className="text-xs font-bold text-[#333333] mr-1">المسئولية</label>
+                    <input name="responsibility" defaultValue={editingMember?.responsibility} required className="input-clean text-[#333333]" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700 mr-1">الرتبة / الدور</label>
-                    <select name="role" defaultValue={editingMember?.role || 'المدرسين'} className="input-clean">
+                    <label className="text-xs font-bold text-[#333333] mr-1">الرتبة / الدور</label>
+                    <select name="role" defaultValue={editingMember?.role || 'المدرسين'} className="input-clean text-[#333333]">
                       <option value="القمص المسئول">القمص المسئول</option>
                       <option value="القس المسئول">القس المسئول</option>
                       <option value="المنسق">المنسق</option>
@@ -3585,22 +3760,22 @@ export const StaffManager = () => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-700 mr-1">الفرقة</label>
-                    <select name="squad" defaultValue={editingMember?.squad || 'عام'} className="input-clean">
+                    <label className="text-xs font-bold text-[#333333] mr-1">الفرقة</label>
+                    <select name="squad" defaultValue={editingMember?.squad || 'عام'} className="input-clean text-[#333333]">
                       <option value="الأولى">الفرقة الأولى</option>
                       <option value="الثانية">الفرقة الثانية</option>
                       <option value="عام">عام</option>
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-700 mr-1">التقييم</label>
+                    <label className="text-xs font-bold text-[#333333] mr-1">التقييم</label>
                     <div className="flex items-center justify-center gap-3 bg-stone-50 py-3 rounded-2xl border border-stone-100">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           type="button"
                           onClick={() => setRating(star)}
-                          className="transition-transform hover:scale-125 focus:outline-none"
+                          className="transition-transform hover:scale-125 active:scale-90 focus:outline-none"
                         >
                           <Star 
                             size={28} 
@@ -3632,7 +3807,7 @@ export const StaffManager = () => {
                     type="button" 
                     disabled={isSaving}
                     onClick={() => { setIsAdding(false); setEditingMember(null); }} 
-                    className="flex-1 py-3 text-stone-700 font-bold hover:bg-stone-50 rounded-2xl transition-colors disabled:opacity-50"
+                    className="flex-1 py-3 text-stone-700 font-bold hover:bg-stone-50 rounded-2xl transition-all active:scale-95 disabled:opacity-50"
                   >
                     إلغاء
                   </button>
@@ -3904,7 +4079,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
               whileHover={{ y: -5, transition: { duration: 0.2 } }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setActiveTab(card.id)}
-              className="bg-white dark:bg-dark-surface rounded-[2.5rem] shadow-sm hover:shadow-md transition-all border border-stone-100 dark:border-dark-border flex flex-col items-center justify-center gap-5 group cursor-pointer p-8 relative overflow-hidden"
+              className="interactive-card bg-white dark:bg-dark-surface rounded-[2.5rem] shadow-sm hover:shadow-md transition-all border border-stone-100 dark:border-dark-border flex flex-col items-center justify-center gap-5 group cursor-pointer p-8 relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-24 h-24 bg-stone-50 dark:bg-dark-bg/20 rounded-bl-[4rem] -mr-8 -mt-8 transition-all group-hover:w-32 group-hover:h-32" />
               
@@ -3929,6 +4104,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
 export const EventsManager = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
@@ -3947,6 +4123,9 @@ export const EventsManager = () => {
 
   const handleAddEvent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
+
     const formData = new FormData(e.currentTarget);
     const newEvent = {
       name: formData.get('name') as string,
@@ -3964,6 +4143,8 @@ export const EventsManager = () => {
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'events');
       addToast('فشل إضافة الحدث', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -3998,7 +4179,7 @@ export const EventsManager = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {events.map((event) => (
-          <div key={event.id} className="card-clean p-6 group">
+          <div key={event.id} className="interactive-card card-clean p-6 group">
             <div className="flex items-start justify-between mb-4">
               <div className="p-2 bg-stone-50 rounded-lg text-gold">
                 <Calendar size={20} />
@@ -4034,24 +4215,44 @@ export const EventsManager = () => {
               <h2 className="text-3xl font-serif font-bold text-[#800000] mb-8 text-center">إضافة حدث جديد</h2>
               <form onSubmit={handleAddEvent} className="space-y-6">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 mr-1">اسم الحدث</label>
-                  <input name="name" placeholder="مثلاً: رحلة ترفيهية" required className="input-clean" />
+                  <label className="text-xs font-bold text-[#333333] mr-1">اسم الحدث</label>
+                  <input name="name" placeholder="مثلاً: رحلة ترفيهية" required className="input-clean text-[#333333]" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 mr-1">التاريخ</label>
-                  <input name="date" type="date" required className="input-clean" />
+                  <label className="text-xs font-bold text-[#333333] mr-1">التاريخ</label>
+                  <input name="date" type="date" required className="input-clean text-[#333333]" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 mr-1">الوقت</label>
-                  <input name="time" placeholder="مثلاً: 6:00 م" required className="input-clean" />
+                  <label className="text-xs font-bold text-[#333333] mr-1">الوقت</label>
+                  <input name="time" placeholder="مثلاً: 6:00 م" required className="input-clean text-[#333333]" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-500 mr-1">المكان</label>
-                  <input name="location" placeholder="مثلاً: مبنى الخدمات" required className="input-clean" />
+                  <label className="text-xs font-bold text-[#333333] mr-1">المكان</label>
+                  <input name="location" placeholder="مثلاً: مبنى الخدمات" required className="input-clean text-[#333333]" />
                 </div>
                 <div className="flex gap-4 pt-6">
-                  <button type="submit" className="flex-1 btn-primary shadow-lg shadow-[#800000]/20">حفظ الحدث</button>
-                  <button type="button" onClick={() => setIsAdding(false)} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-50 rounded-2xl transition-colors">إلغاء</button>
+                  <button 
+                    type="submit" 
+                    disabled={isSaving}
+                    className="flex-1 btn-primary shadow-lg shadow-[#800000]/20 flex items-center justify-center gap-2"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      'حفظ الحدث'
+                    )}
+                  </button>
+                  <button 
+                    type="button" 
+                    disabled={isSaving}
+                    onClick={() => setIsAdding(false)} 
+                    className="flex-1 py-3 text-[#333333] font-bold hover:bg-stone-50 rounded-2xl transition-colors disabled:opacity-50"
+                  >
+                    إلغاء
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -4072,6 +4273,8 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
     totalTayo: 0
   });
   const [loading, setLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
@@ -4155,6 +4358,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
       title: 'تصفير النقاط',
       message: `هل أنت متأكد من تصفير نقاط ${selectedGrade}؟ سيتم حفظ المجموع الحالي في السجل.`,
       onConfirm: async () => {
+        setIsResetting(true);
         try {
           const analyticsRef = doc(db, 'group_analytics', `grade_${selectedGrade}`);
           const docSnap = await getDoc(analyticsRef);
@@ -4179,7 +4383,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
               behavior: 0,
               interaction: 0,
               practical: 0,
-              history: increment(1) ? [historyEntry, ...(data.history || [])].slice(0, 10) : [historyEntry]
+              history: [historyEntry, ...(data.history || [])].slice(0, 10)
             });
             
             addToast('تم تصفير النقاط بنجاح', 'success');
@@ -4187,13 +4391,15 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
         } catch (error) {
           handleFirestoreError(error, OperationType.UPDATE, 'group_analytics');
           addToast('فشل تصفير النقاط', 'error');
+        } finally {
+          setIsResetting(false);
         }
       }
     });
   };
 
   const handleSyncData = async () => {
-    setLoading(true);
+    setIsSyncing(true);
     try {
       const gradesSnap = await getDocs(collection(db, 'grades'));
       const studentsSnap = await getDocs(collection(db, 'students'));
@@ -4239,7 +4445,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
       handleFirestoreError(error, OperationType.LIST, 'sync_analytics');
       addToast('فشل مزامنة البيانات', 'error');
     } finally {
-      setLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -4324,7 +4530,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                   <select 
                     value={selectedGrade}
                     onChange={(e) => setSelectedGrade(e.target.value)}
-                    className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer"
+                    className="bg-transparent font-bold text-[#333333] outline-none cursor-pointer"
                   >
                     {grades.map(g => (
                       <option key={g} value={g}>{gradeLabels[g]}</option>
@@ -4337,18 +4543,20 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                     {selectedGrade !== 'all' && (
                       <button 
                         onClick={handleResetPoints}
-                        className="flex items-center gap-2 px-6 py-3 bg-royal-red/10 text-royal-red rounded-2xl font-bold hover:bg-royal-red hover:text-white transition-all shadow-sm"
+                        disabled={isResetting}
+                        className="flex items-center gap-2 px-6 py-3 bg-royal-red/10 text-royal-red rounded-2xl font-bold hover:bg-royal-red hover:text-white transition-all shadow-sm disabled:opacity-50"
                       >
-                        <Trash2 size={20} />
+                        {isResetting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 size={20} />}
                         تصفير النقاط
                       </button>
                     )}
                     <button 
                       onClick={handleSyncData}
-                      className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                      disabled={isSyncing}
+                      className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
                       title="مزامنة البيانات من السجلات القديمة"
                     >
-                      <Save size={20} />
+                      {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={20} />}
                       مزامنة البيانات
                     </button>
                   </div>
@@ -4356,19 +4564,19 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
-                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-[#800000]">
+                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-[#800000]">
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Users size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي الطلاب</p>
                   <h3 className="text-4xl font-bold text-stone-900">{stats.students}</h3>
                 </motion.div>
                 
-                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-gold">
+                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-gold">
                   <div className="w-12 h-12 bg-gold text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Calendar size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">الحضور اليوم</p>
                   <h3 className="text-4xl font-bold text-stone-900">{stats.attendanceToday}</h3>
                 </motion.div>
                 
-                <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-[#800000]">
+                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-[#800000]">
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><GraduationCap size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الطايو</p>
                   <h3 className="text-4xl font-bold text-stone-900 mb-4">{stats.totalTayo}</h3>
@@ -4764,7 +4972,7 @@ const AppContent = () => {
       {/* Header */}
       <header className="sticky top-0 left-0 right-0 lg:right-72 z-30 h-24 pointer-events-none">
         {/* SVG Background Arc */}
-        <div className="absolute inset-0 -z-10 pointer-events-auto">
+        <div className="absolute inset-0 -z-10 pointer-events-none">
           <svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" className="drop-shadow-lg">
             <path d="M 0 0 H 100 V 60 Q 50 100 0 60 Z" fill="#800000" />
           </svg>

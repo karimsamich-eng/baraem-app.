@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Save, Plus, Trash2, Upload, Eye, X, Star, Calendar, Clock, Search, RotateCw, Crop as CropIcon, Image as ImageIcon } from 'lucide-react';
+import { Save, Plus, Trash2, Edit2, Upload, Eye, X, Star, Calendar, Clock, Search, RotateCw, Crop as CropIcon, Image as ImageIcon } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { Curriculum, SliderImage, StaffMember, Event, Settings } from '../types';
@@ -96,6 +96,8 @@ export const SliderManager = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [editingImage, setEditingImage] = useState<SliderImage | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'slider_images'), (snapshot) => {
@@ -130,8 +132,19 @@ export const SliderManager = () => {
 
     try {
       const docRef = doc(collection(db, 'slider_images'));
+      let imageUrl = preview;
+      
+      // Upload to storage if it's a new image
+      if (preview && preview.startsWith('data:image')) {
+        const response = await fetch(preview);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `slider/${docRef.id}`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
       await setDoc(docRef, {
-        imageUrl: preview || null,
+        imageUrl,
         caption,
         createdAt: new Date().toISOString(),
         createdBy: user?.username || ''
@@ -147,20 +160,49 @@ export const SliderManager = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, imageUrl?: string) => {
     confirm({
       title: 'حذف صورة',
       message: 'هل أنت متأكد من حذف هذه الصورة؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
+        setIsDeleting(id);
         try {
+          // Delete from Storage if it's a storage URL
+          if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const storageRef = ref(storage, imageUrl);
+              await deleteObject(storageRef);
+            } catch (e) {
+              console.warn('Storage deletion failed or file not found:', e);
+            }
+          }
           await deleteDoc(doc(db, 'slider_images', id));
           addToast('تم حذف الصورة بنجاح', 'success');
         } catch (error) {
           handleFirestoreError(error, OperationType.DELETE, 'slider_images');
           addToast('فشل حذف الصورة', 'error');
+        } finally {
+          setIsDeleting(null);
         }
       }
     });
+  };
+
+  const handleUpdateImage = async (id: string, newBase64: string) => {
+    try {
+      const response = await fetch(newBase64);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `slider/${id}`);
+      await uploadBytes(storageRef, blob);
+      const imageUrl = await getDownloadURL(storageRef);
+      
+      await setDoc(doc(db, 'slider_images', id), { imageUrl }, { merge: true });
+      addToast('تم تحديث الصورة بنجاح', 'success');
+      setEditingImage(null);
+    } catch (error) {
+      console.error('Update image failed:', error);
+      addToast('فشل تحديث الصورة', 'error');
+    }
   };
 
   if (loading) return <div className="p-12 animate-pulse text-[#800000] font-bold">جاري تحميل الصور...</div>;
@@ -219,15 +261,35 @@ export const SliderManager = () => {
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {images.map(img => (
-              <div key={img.id} className="card-clean overflow-hidden group">
+              <div key={img.id} className="card-clean overflow-hidden group relative">
                 <div className="relative h-48">
                   <img src={img.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  <button 
-                    onClick={() => handleDelete(img.id)}
-                    className="absolute top-2 left-2 p-2 bg-white/90 text-red-600 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-700 transition-all shadow-lg"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  
+                  {/* Floating Icons for Coordinator */}
+                  {user?.role === 'coordinator' && (
+                    <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button 
+                        onClick={() => setEditingImage(img)}
+                        className="w-10 h-10 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-[#FFD700] hover:bg-black/80 transition-all"
+                        title="تعديل الصورة"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(img.id, img.imageUrl)}
+                        className="w-10 h-10 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-red-400 hover:bg-black/80 transition-all"
+                        title="حذف الصورة"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  )}
+
+                  {isDeleting === img.id && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-20">
+                      <div className="w-8 h-8 border-4 border-[#800000]/30 border-t-[#800000] rounded-full animate-spin" />
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <p className="font-bold text-stone-900 truncate">{img.caption || 'بدون عنوان'}</p>
@@ -243,6 +305,18 @@ export const SliderManager = () => {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {editingImage && (
+          <LogoEditorModal 
+            isOpen={!!editingImage}
+            initialImage={editingImage.imageUrl}
+            onSave={async (newImg) => handleUpdateImage(editingImage.id, newImg)}
+            onClose={() => setEditingImage(null)}
+            title="تعديل صورة السلايدر"
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -523,12 +597,14 @@ export const SettingsManager = () => {
       <AnimatePresence>
         {isEditorOpen && selectedImage && (
           <LogoEditorModal 
-            image={selectedImage} 
+            isOpen={isEditorOpen}
+            initialImage={selectedImage} 
             onSave={handleSaveLogo} 
             onClose={() => {
               setIsEditorOpen(false);
               setSelectedImage(null);
             }} 
+            title="تعديل الشعار"
           />
         )}
       </AnimatePresence>
@@ -696,13 +772,41 @@ export const AnthemManager = () => {
     </div>
   );
 };
-const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (img: string) => Promise<void>, onClose: () => void }) => {
+interface LogoEditorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (base64: string) => Promise<void>;
+  initialImage?: string;
+  title?: string;
+  aspectRatio?: number;
+  circular?: boolean;
+}
+
+export const LogoEditorModal = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  initialImage, 
+  title = "تعديل الصورة", 
+  aspectRatio = 1,
+  circular = false
+}: LogoEditorModalProps) => {
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const [rotation, setRotation] = useState(0);
-  const [aspect, setAspect] = useState<number | undefined>(1);
+  const [aspect, setAspect] = useState<number | undefined>(aspectRatio);
   const [saving, setSaving] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string>(initialImage || '');
   const imgRef = useRef<HTMLImageElement>(null);
+
+  const onSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setCrop(undefined);
+      const reader = new FileReader();
+      reader.addEventListener('load', () => setImgSrc(reader.result?.toString() || ''));
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  };
 
   const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget;
@@ -717,7 +821,6 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
       height
     );
     setCrop(initialCrop);
-    // Initialize completedCrop so the save button works even if user doesn't touch the crop area
     setCompletedCrop(convertToPixelCrop(initialCrop, width, height));
   };
 
@@ -757,7 +860,7 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
   }, [completedCrop, rotation]);
 
   const handleConfirm = async () => {
-    if (!completedCrop || saving) return;
+    if (!imgSrc || !completedCrop || saving) return;
     setSaving(true);
     try {
       const croppedImg = await getCroppedImg();
@@ -771,104 +874,105 @@ const LogoEditorModal = ({ image, onSave, onClose }: { image: string, onSave: (i
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-stone-100 overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
       >
-        <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#800000] text-white rounded-full flex items-center justify-center">
-              <CropIcon size={20} />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-stone-900">تعديل الشعار</h2>
-              <p className="text-xs text-stone-500 font-bold">قم بقص وتدوير الشعار قبل الحفظ</p>
-            </div>
+        <div className="p-8 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+          <div>
+            <h3 className="text-2xl font-serif font-bold text-[#800000]">{title}</h3>
+            <p className="text-stone-500 text-sm mt-1">قم بقص الصورة وتعديلها بالشكل المناسب</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors">
-            <X size={24} className="text-stone-400" />
+          <button onClick={onClose} className="p-3 hover:bg-white rounded-2xl text-stone-400 hover:text-[#800000] transition-all shadow-sm">
+            <X size={24} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center bg-stone-100/50">
-          <div className="max-w-full overflow-hidden rounded-2xl shadow-inner bg-white p-4">
-            <ReactCrop
-              crop={crop}
-              onChange={(c) => setCrop(c)}
-              onComplete={(c) => setCompletedCrop(c)}
-              aspect={aspect}
-              circularCrop={false}
-            >
-              <img
-                ref={imgRef}
-                src={image}
-                alt="Crop me"
-                style={{ transform: `rotate(${rotation}deg)`, maxHeight: '50vh' }}
-                onLoad={onImageLoad}
-              />
-            </ReactCrop>
-          </div>
-
-          <div className="mt-8 flex flex-wrap justify-center gap-4 w-full max-w-md">
-            <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-stone-100">
-              <button 
-                onClick={() => setRotation(r => (r - 90) % 360)}
-                className="p-2 hover:bg-stone-50 rounded-lg text-stone-600 transition-colors"
-                title="تدوير لليسار"
-              >
-                <RotateCw size={20} className="scale-x-[-1]" />
-              </button>
-              <span className="text-xs font-bold text-stone-400 px-2">التدوير</span>
-              <button 
-                onClick={() => setRotation(r => (r + 90) % 360)}
-                className="p-2 hover:bg-stone-50 rounded-lg text-stone-600 transition-colors"
-                title="تدوير لليمين"
-              >
-                <RotateCw size={20} />
-              </button>
+        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
+          {!imgSrc ? (
+            <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-stone-200 rounded-[2rem] bg-stone-50">
+              <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-gold shadow-sm mb-6">
+                <Upload size={40} />
+              </div>
+              <p className="text-stone-600 font-bold mb-2">لم يتم اختيار صورة</p>
+              <p className="text-stone-400 text-sm mb-8">اختر صورة للبدء في التعديل</p>
+              <label className="btn-royal cursor-pointer">
+                <span>اختر صورة</span>
+                <input type="file" className="hidden" accept="image/*" onChange={onSelectFile} />
+              </label>
             </div>
+          ) : (
+            <div className="space-y-8">
+              <div className="flex justify-center bg-stone-100 rounded-[2rem] p-8 min-h-[300px] items-center">
+                <ReactCrop
+                  crop={crop}
+                  onChange={c => setCrop(c)}
+                  onComplete={c => setCompletedCrop(c)}
+                  aspect={aspect}
+                  circularCrop={circular}
+                  className="max-h-[500px]"
+                >
+                  <img
+                    ref={imgRef}
+                    alt="Crop me"
+                    src={imgSrc}
+                    style={{ transform: `rotate(${rotation}deg)`, maxWidth: '100%' }}
+                    onLoad={onImageLoad}
+                  />
+                </ReactCrop>
+              </div>
 
-            <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-stone-100">
-              <button 
-                onClick={() => setAspect(1)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspect === 1 ? 'bg-[#800000] text-white' : 'text-stone-500 hover:bg-stone-50'}`}
-              >
-                1:1
-              </button>
-              <button 
-                onClick={() => setAspect(undefined)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${aspect === undefined ? 'bg-[#800000] text-white' : 'text-stone-500 hover:bg-stone-50'}`}
-              >
-                حر
-              </button>
-              <span className="text-xs font-bold text-stone-400 px-2">الأبعاد</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-sm font-bold text-stone-600 flex items-center gap-2">
+                    <RotateCw size={16} className="text-gold" />
+                    تدوير الصورة ({rotation}°)
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    value={rotation}
+                    onChange={(e) => setRotation(Number(e.target.value))}
+                    className="w-full h-2 bg-stone-200 rounded-lg appearance-none cursor-pointer accent-gold"
+                  />
+                </div>
+
+                <div className="flex items-end gap-4">
+                  <label className="btn-outline flex-1 cursor-pointer text-center">
+                    <span>تغيير الصورة</span>
+                    <input type="file" className="hidden" accept="image/*" onChange={onSelectFile} />
+                  </label>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <div className="p-6 border-t border-stone-100 bg-stone-50 flex gap-4">
+        <div className="p-8 bg-stone-50/50 border-t border-stone-100 flex gap-4">
           <button 
             onClick={handleConfirm}
-            disabled={!completedCrop || saving}
-            className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!imgSrc || !completedCrop || saving}
+            className="btn-royal flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>جاري الحفظ...</span>
+              </div>
             ) : (
-              <Save size={20} />
+              <div className="flex items-center justify-center gap-2">
+                <Save size={20} />
+                <span>حفظ التعديلات</span>
+              </div>
             )}
-            <span>{saving ? 'جاري الحفظ...' : 'حفظ الشعار النهائي'}</span>
           </button>
-          <button 
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl font-bold text-stone-500 hover:bg-white transition-colors border border-stone-200 z-[110]"
-          >
-            إلغاء / إغلاق إجباري
-          </button>
+          <button onClick={onClose} className="btn-outline flex-1">إلغاء</button>
         </div>
       </motion.div>
     </div>

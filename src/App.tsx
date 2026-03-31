@@ -5,8 +5,9 @@
 
 import React, { useState, useEffect, createContext, useContext, ReactNode, useRef, useCallback } from 'react';
 import { 
-  db, auth,
+  db, auth, storage,
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, increment,
+  ref, uploadBytes, getDownloadURL, deleteObject,
   handleFirestoreError, OperationType
 } from './firebase.ts';
 import { signInAnonymously } from 'firebase/auth';
@@ -16,7 +17,7 @@ import { TearDropLogo } from './components/TearDropLogo';
 import { MonthlyExamCenter } from './components/MonthlyExamCenter';
 import { StudentProfileNew } from './components/StudentProfile';
 import { StudentListNew } from './components/StudentList';
-import { CurriculumManager, SliderManager, SettingsManager, AnthemManager } from './components/Managers';
+import { CurriculumManager, SliderManager, SettingsManager, AnthemManager, LogoEditorModal } from './components/Managers';
 import { 
   Users, Calendar, GraduationCap, LayoutDashboard, LogOut, Plus, Search, Trophy,
   CheckCircle2, XCircle, Clock, MoreVertical, Edit2, Trash2, ChevronRight, 
@@ -513,18 +514,13 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
   const { user, logout, canAccess } = useAuth();
   
   const menuItems = [
+    { id: 'hub', label: 'الرئيسية', icon: LayoutDashboard },
     { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
     { id: 'reports', label: 'صندوق التقارير', icon: FileText },
-    { id: 'students', label: 'معرض الطلاب', icon: Users },
     { id: 'attendance', label: 'تسجيل الحضور', icon: Calendar },
     { id: 'tayo', label: 'تقييم طايو', icon: GraduationCap },
     { id: 'practical', label: 'الخدمة العملية', icon: Heart },
     { id: 'acceptance', label: 'تقييم القبول', icon: CheckCircle2 },
-    { id: 'exam_center', label: 'مركز الامتحانات', icon: BookOpen },
-    { id: 'staff', label: 'الهيكل التنظيمي', icon: Users },
-    { id: 'events', label: 'الأحداث القادمة', icon: Calendar },
-    { id: 'resource-mgmt', label: 'إدارة الموارد', icon: Save },
-    { id: 'slider-mgmt', label: 'إدارة الصور', icon: Save },
     { id: 'anthem-mgmt', label: 'إدارة الشعار', icon: Music },
     { id: 'settings-mgmt', label: 'إعدادات الهوية', icon: UserCog },
   ].filter(item => canAccess(item.id));
@@ -2638,11 +2634,16 @@ const EventsPage = () => {
 
 // --- Staff Page ---
 function StaffPage() {
+  const { user, canAccess } = useAuth();
+  const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [squadFilter, setSquadFilter] = useState('الكل');
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
+  const [editingImage, setEditingImage] = useState<StaffMember | null>(null);
+  const [isDeletingImage, setIsDeletingImage] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'staff'));
@@ -2679,6 +2680,50 @@ function StaffPage() {
     }, (error) => handleFirestoreError(error, OperationType.GET, 'staff'));
     return unsubscribe;
   }, []);
+
+  const handleUpdateStaffImage = async (id: string, newBase64: string) => {
+    try {
+      const response = await fetch(newBase64);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `staff/${id}`);
+      await uploadBytes(storageRef, blob);
+      const imageUrl = await getDownloadURL(storageRef);
+      
+      await updateDoc(doc(db, 'staff', id), { imageUrl });
+      addToast('تم تحديث الصورة بنجاح', 'success');
+      setEditingImage(null);
+    } catch (error) {
+      console.error('Update staff image failed:', error);
+      addToast('فشل تحديث الصورة', 'error');
+    }
+  };
+
+  const handleDeleteStaffImage = async (id: string, imageUrl: string) => {
+    confirm({
+      title: 'حذف الصورة',
+      message: 'هل أنت متأكد من حذف صورة هذا العضو؟',
+      onConfirm: async () => {
+        setIsDeletingImage(id);
+        try {
+          if (imageUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const storageRef = ref(storage, imageUrl);
+              await deleteObject(storageRef);
+            } catch (e) {
+              console.warn('Storage deletion failed:', e);
+            }
+          }
+          await updateDoc(doc(db, 'staff', id), { imageUrl: null });
+          addToast('تم حذف الصورة بنجاح', 'success');
+        } catch (error) {
+          console.error('Delete staff image failed:', error);
+          addToast('فشل حذف الصورة', 'error');
+        } finally {
+          setIsDeletingImage(null);
+        }
+      }
+    });
+  };
 
   const filteredStaff = staff.filter(member => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -2751,12 +2796,50 @@ function StaffPage() {
                   <>
                     <img src={member.imageUrl} alt={member.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Eye size={24} className="text-white" />
+                      <Eye size={24} className="text-white" onClick={(e) => { e.stopPropagation(); setViewPhoto(member.imageUrl!); }} />
                     </div>
+                    {/* Coordinator Controls */}
+                    {canAccess('coordinator') && (
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setEditingImage(member); }}
+                          className="p-1.5 bg-black/50 backdrop-blur-sm rounded-full text-gold hover:bg-black/70 transition-colors"
+                          title="تعديل الصورة"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDeleteStaffImage(member.id, member.imageUrl!); }}
+                          className="p-1.5 bg-black/50 backdrop-blur-sm rounded-full text-red-400 hover:bg-black/70 transition-colors"
+                          title="حذف الصورة"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </>
                 ) : (
-                  <div className="w-full h-full bg-stone-100 flex items-center justify-center text-4xl font-bold text-stone-300">
+                  <div className="w-full h-full bg-stone-100 flex items-center justify-center text-4xl font-bold text-stone-300 relative">
                     {member.name[0]}
+                    {/* Coordinator Controls for empty state */}
+                    {canAccess('coordinator') && (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setEditingImage(member); }}
+                          className="p-1.5 bg-black/50 backdrop-blur-sm rounded-full text-gold hover:bg-black/70 transition-colors"
+                          title="إضافة صورة"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Loading Overlay */}
+                {isDeletingImage === member.id && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-30">
+                    <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
               </div>
@@ -2818,9 +2901,22 @@ function StaffPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Image Editor Modal */}
+      {editingImage && (
+        <LogoEditorModal
+          isOpen={!!editingImage}
+          onClose={() => setEditingImage(null)}
+          onSave={(base64) => handleUpdateStaffImage(editingImage.id, base64)}
+          initialImage={editingImage.imageUrl || undefined}
+          title={`تعديل صورة: ${editingImage.name}`}
+          aspectRatio={1}
+          circular={true}
+        />
+      )}
     </div>
   );
-};
+}
 
 // --- Reports Inbox ---
 const ReportsInbox = () => {
@@ -3008,6 +3104,8 @@ export const StaffManager = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [squadFilter, setSquadFilter] = useState('الكل');
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
+  const [editingImage, setEditingImage] = useState<StaffMember | null>(null);
+  const [isDeletingImage, setIsDeletingImage] = useState<string | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
@@ -3050,19 +3148,29 @@ export const StaffManager = () => {
   const handleAddMember = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newMember = {
-      name: formData.get('name') as string,
-      responsibility: formData.get('responsibility') as string,
-      role: formData.get('role') as any,
-      squad: formData.get('squad') as any,
-      rating: rating,
-      imageUrl: photoBase64 || null,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
+    const docRef = doc(collection(db, 'staff'));
+    let imageUrl = photoBase64;
 
     try {
-      const docRef = doc(collection(db, 'staff'));
+      if (photoBase64 && photoBase64.startsWith('data:image')) {
+        const response = await fetch(photoBase64);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `staff/${docRef.id}`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
+      const newMember = {
+        name: formData.get('name') as string,
+        responsibility: formData.get('responsibility') as string,
+        role: formData.get('role') as any,
+        squad: formData.get('squad') as any,
+        rating: rating,
+        imageUrl: imageUrl || null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
+
       await setDoc(docRef, { ...newMember, id: docRef.id });
       setIsAdding(false);
       setPhotoBase64(null);
@@ -3074,12 +3182,20 @@ export const StaffManager = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, imageUrl?: string) => {
     confirm({
       title: 'حذف عضو',
       message: 'هل أنت متأكد من حذف هذا العضو؟ لا يمكن التراجع عن هذا الإجراء.',
       onConfirm: async () => {
         try {
+          if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const storageRef = ref(storage, imageUrl);
+              await deleteObject(storageRef);
+            } catch (e) {
+              console.warn('Storage deletion failed or file not found:', e);
+            }
+          }
           await deleteDoc(doc(db, 'staff', id));
           addToast('تم حذف العضو بنجاح', 'success');
         } catch (error) {
@@ -3090,22 +3206,76 @@ export const StaffManager = () => {
     });
   };
 
+  const handleUpdateStaffImage = async (id: string, newBase64: string) => {
+    try {
+      const response = await fetch(newBase64);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `staff/${id}`);
+      await uploadBytes(storageRef, blob);
+      const imageUrl = await getDownloadURL(storageRef);
+      
+      await updateDoc(doc(db, 'staff', id), { imageUrl });
+      addToast('تم تحديث الصورة بنجاح', 'success');
+      setEditingImage(null);
+    } catch (error) {
+      console.error('Update staff image failed:', error);
+      addToast('فشل تحديث الصورة', 'error');
+    }
+  };
+
+  const handleDeleteStaffImage = async (id: string, imageUrl: string) => {
+    confirm({
+      title: 'حذف الصورة',
+      message: 'هل أنت متأكد من حذف صورة هذا العضو؟',
+      onConfirm: async () => {
+        setIsDeletingImage(id);
+        try {
+          if (imageUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const storageRef = ref(storage, imageUrl);
+              await deleteObject(storageRef);
+            } catch (e) {
+              console.warn('Storage deletion failed:', e);
+            }
+          }
+          await updateDoc(doc(db, 'staff', id), { imageUrl: null });
+          addToast('تم حذف الصورة بنجاح', 'success');
+        } catch (error) {
+          console.error('Delete staff image failed:', error);
+          addToast('فشل حذف الصورة', 'error');
+        } finally {
+          setIsDeletingImage(null);
+        }
+      }
+    });
+  };
+
   const handleEditMember = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingMember) return;
     const formData = new FormData(e.currentTarget);
-    const updatedMember = {
-      name: formData.get('name') as string,
-      responsibility: formData.get('responsibility') as string,
-      role: formData.get('role') as any,
-      squad: formData.get('squad') as any,
-      rating: rating,
-      imageUrl: photoBase64 || editingMember.imageUrl || null,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
+    let imageUrl = photoBase64 || editingMember.imageUrl || null;
 
     try {
+      if (photoBase64 && photoBase64.startsWith('data:image')) {
+        const response = await fetch(photoBase64);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `staff/${editingMember.id}`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      }
+
+      const updatedMember = {
+        name: formData.get('name') as string,
+        responsibility: formData.get('responsibility') as string,
+        role: formData.get('role') as any,
+        squad: formData.get('squad') as any,
+        rating: rating,
+        imageUrl: imageUrl,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
+
       await updateDoc(doc(db, 'staff', editingMember.id), updatedMember);
       setEditingMember(null);
       setPhotoBase64(null);
@@ -3157,18 +3327,45 @@ export const StaffManager = () => {
           <div key={member.id} className="card-clean p-6 flex items-center gap-4 group">
             <div 
               className="w-16 h-16 rounded-full overflow-hidden shrink-0 border-2 border-stone-50 group-hover:border-gold transition-all cursor-pointer relative"
-              onClick={() => member.imageUrl && setViewPhoto(member.imageUrl)}
             >
               {member.imageUrl ? (
                 <>
-                  <img src={member.imageUrl} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Eye size={16} className="text-white" />
-                  </div>
+                  <img src={member.imageUrl} alt="" className="w-full h-full object-cover" onClick={() => setViewPhoto(member.imageUrl!)} />
+                  
+                  {/* Floating Icons for Coordinator */}
+                  {user?.role === 'coordinator' && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setEditingImage(member); }}
+                        className="w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-[#FFD700] hover:bg-black/80 transition-all"
+                        title="تعديل الصورة"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteStaffImage(member.id, member.imageUrl!); }}
+                        className="w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-red-400 hover:bg-black/80 transition-all"
+                        title="حذف الصورة"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  {isDeletingImage === member.id && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-[#800000]/30 border-t-[#800000] rounded-full animate-spin" />
+                    </div>
+                  )}
                 </>
               ) : (
-                <div className="w-full h-full bg-stone-100 flex items-center justify-center font-bold text-stone-300">
+                <div className="w-full h-full bg-stone-100 flex items-center justify-center font-bold text-stone-300" onClick={() => user?.role === 'coordinator' && setEditingImage(member)}>
                   {member.name[0]}
+                  {user?.role === 'coordinator' && (
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Plus size={16} className="text-white" />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3185,7 +3382,7 @@ export const StaffManager = () => {
               <button onClick={() => { setEditingMember(member); setPhotoBase64(null); setRating(member.rating); }} className="p-2 text-stone-400 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors">
                 <Edit2 size={18} />
               </button>
-              <button onClick={() => handleDelete(member.id)} className="p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
+              <button onClick={() => handleDelete(member.id, member.imageUrl)} className="p-2 text-stone-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
                 <Trash2 size={18} />
               </button>
             </div>
@@ -3225,6 +3422,17 @@ export const StaffManager = () => {
               </button>
             </motion.div>
           </div>
+        )}
+        {editingImage && (
+          <LogoEditorModal 
+            isOpen={!!editingImage}
+            initialImage={editingImage.imageUrl || ''}
+            onSave={async (newImg) => handleUpdateStaffImage(editingImage.id, newImg)}
+            onClose={() => setEditingImage(null)}
+            title={`تعديل صورة: ${editingImage.name}`}
+            aspectRatio={1}
+            circular={true}
+          />
         )}
         {(isAdding || editingMember) && (
           <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -3313,8 +3521,12 @@ export const StaffManager = () => {
 // --- Gallery ---
 const Gallery = () => {
   const { user } = useAuth();
+  const { addToast } = useToast();
+  const { confirm } = useConfirm();
   const [images, setImages] = useState<SliderImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingImage, setEditingImage] = useState<SliderImage | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   if (!user || user.role === 'guest') {
     return (
@@ -3336,6 +3548,50 @@ const Gallery = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleDelete = async (id: string, imageUrl?: string) => {
+    confirm({
+      title: 'حذف صورة',
+      message: 'هل أنت متأكد من حذف هذه الصورة من المعرض؟',
+      onConfirm: async () => {
+        setIsDeleting(id);
+        try {
+          if (imageUrl && imageUrl.includes('firebasestorage.googleapis.com')) {
+            try {
+              const storageRef = ref(storage, imageUrl);
+              await deleteObject(storageRef);
+            } catch (e) {
+              console.warn('Storage deletion failed:', e);
+            }
+          }
+          await deleteDoc(doc(db, 'slider_images', id));
+          addToast('تم حذف الصورة بنجاح', 'success');
+        } catch (error) {
+          console.error('Delete gallery image failed:', error);
+          addToast('فشل حذف الصورة', 'error');
+        } finally {
+          setIsDeleting(null);
+        }
+      }
+    });
+  };
+
+  const handleUpdateImage = async (id: string, newBase64: string) => {
+    try {
+      const response = await fetch(newBase64);
+      const blob = await response.blob();
+      const storageRef = ref(storage, `slider/${id}`);
+      await uploadBytes(storageRef, blob);
+      const imageUrl = await getDownloadURL(storageRef);
+      
+      await updateDoc(doc(db, 'slider_images', id), { imageUrl });
+      addToast('تم تحديث الصورة بنجاح', 'success');
+      setEditingImage(null);
+    } catch (error) {
+      console.error('Update gallery image failed:', error);
+      addToast('فشل تحديث الصورة', 'error');
+    }
+  };
+
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto min-h-screen">
       <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-8 md:mb-12 text-center">المعرض</h1>
@@ -3348,7 +3604,7 @@ const Gallery = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {images.map(img => (
-            <div key={img.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 group">
+            <div key={img.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 group relative">
               <div className="aspect-video relative overflow-hidden">
                 <img 
                   src={img.imageUrl} 
@@ -3356,6 +3612,32 @@ const Gallery = () => {
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   referrerPolicy="no-referrer"
                 />
+
+                {/* Floating Icons for Coordinator */}
+                {user?.role === 'coordinator' && (
+                  <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button 
+                      onClick={() => setEditingImage(img)}
+                      className="w-10 h-10 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-[#FFD700] hover:bg-black/80 transition-all"
+                      title="تعديل الصورة"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(img.id, img.imageUrl)}
+                      className="w-10 h-10 bg-black/60 backdrop-blur-md rounded-full flex items-center justify-center text-red-400 hover:bg-black/80 transition-all"
+                      title="حذف الصورة"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )}
+
+                {isDeleting === img.id && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-20">
+                    <div className="w-8 h-8 border-4 border-[#800000]/30 border-t-[#800000] rounded-full animate-spin" />
+                  </div>
+                )}
               </div>
               {img.caption && (
                 <div className="p-4">
@@ -3366,6 +3648,18 @@ const Gallery = () => {
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {editingImage && (
+          <LogoEditorModal 
+            isOpen={!!editingImage}
+            initialImage={editingImage.imageUrl}
+            onSave={async (newImg) => handleUpdateImage(editingImage.id, newImg)}
+            onClose={() => setEditingImage(null)}
+            title="تعديل صورة المعرض"
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -3375,21 +3669,34 @@ const Gallery = () => {
 // --- Main Hub ---
 const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
   const { user, canAccess } = useAuth();
+  const [stats, setStats] = useState({ students: 0, attendanceToday: 0, totalTayo: 0 });
+  const [loading, setLoading] = useState(true);
   
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const studentsSnap = await getDocs(collection(db, 'students'));
+        const today = new Date().toISOString().split('T')[0];
+        const attendanceSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')));
+        const gradesSnap = await getDocs(collection(db, 'grades'));
+        let totalTayo = 0;
+        gradesSnap.forEach(doc => totalTayo += doc.data().score);
+        setStats({ students: studentsSnap.size, attendanceToday: attendanceSnap.size, totalTayo });
+      } catch (error) {
+        console.error("Stats fetch failed:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   const cards = [
-    { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
-    { id: 'students', label: 'معرض الطلاب', icon: Users },
-    { id: 'attendance', label: 'تسجيل الحضور', icon: Calendar },
-    { id: 'tayo', label: 'تسجيل الطايو', icon: GraduationCap },
-    { id: 'practical', label: 'الخدمة العملية', icon: Heart },
-    { id: 'library', label: 'مكتبة الموارد', icon: BookOpen },
-    { id: 'staff', label: 'الهيكل التنظيمي', icon: Users },
-    { id: 'events', label: 'الأحداث القادمة', icon: Calendar },
-    { id: 'reports', label: 'صندوق التقارير', icon: FileText },
-    { id: 'gallery', label: 'معرض الصور', icon: ImageIcon },
-    { id: 'resource-mgmt', label: 'إدارة الموارد', icon: Save },
-    { id: 'slider-mgmt', label: 'إدارة الصور', icon: Save },
-    { id: 'anthem-mgmt', label: 'إدارة الشعار', icon: Music },
+    { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard, color: 'maroon', desc: 'إدارة شاملة للنظام' },
+    { id: 'attendance', label: 'تسجيل الحضور', icon: Calendar, color: 'gold', desc: 'تسجيل حضور الطلاب' },
+    { id: 'tayo', label: 'تسجيل الطايو', icon: GraduationCap, color: 'maroon', desc: 'رصد درجات التقييم' },
+    { id: 'practical', label: 'الخدمة العملية', icon: Heart, color: 'gold', desc: 'تقارير الخدمة العملية' },
+    { id: 'reports', label: 'صندوق التقارير', icon: FileText, color: 'maroon', desc: 'عرض تقارير الطلاب' },
   ];
 
   const visibleCards = cards.filter(card => canAccess(card.id));
@@ -3404,21 +3711,87 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
         <ServiceAnthem />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 mt-8">
-        {visibleCards.map(card => (
-          <motion.button
-            key={card.id}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveTab(card.id)}
-            className="bg-white dark:bg-dark-surface p-8 rounded-3xl shadow-md hover:shadow-xl transition-all border border-stone-100 dark:border-dark-border flex flex-col items-center gap-4 group"
-          >
-            <div className="w-16 h-16 bg-[#800000]/5 dark:bg-[#800000]/10 rounded-2xl flex items-center justify-center group-hover:bg-[#800000]/10 dark:group-hover:bg-[#800000]/20 transition-colors">
-              <card.icon size={32} className="text-[#800000] dark:text-gold" />
-            </div>
-            <span className="text-xl font-bold text-stone-800 dark:text-dark-text">{card.label}</span>
-          </motion.button>
-        ))}
+      {/* Quick Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-white dark:bg-dark-surface p-6 rounded-[2rem] shadow-sm border border-stone-100 dark:border-dark-border flex items-center gap-6"
+        >
+          <div className="w-16 h-16 bg-maroon/10 rounded-2xl flex items-center justify-center text-maroon">
+            <Users size={32} />
+          </div>
+          <div>
+            <p className="text-stone-500 text-sm font-bold">إجمالي الطلاب</p>
+            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{loading ? '...' : stats.students}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white dark:bg-dark-surface p-6 rounded-[2rem] shadow-sm border border-stone-100 dark:border-dark-border flex items-center gap-6"
+        >
+          <div className="w-16 h-16 bg-gold/10 rounded-2xl flex items-center justify-center text-gold">
+            <Calendar size={32} />
+          </div>
+          <div>
+            <p className="text-stone-500 text-sm font-bold">الحضور اليوم</p>
+            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{loading ? '...' : stats.attendanceToday}</h3>
+          </div>
+        </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white dark:bg-dark-surface p-6 rounded-[2rem] shadow-sm border border-stone-100 dark:border-dark-border flex items-center gap-6"
+        >
+          <div className="w-16 h-16 bg-maroon/10 rounded-2xl flex items-center justify-center text-maroon">
+            <Trophy size={32} />
+          </div>
+          <div>
+            <p className="text-stone-500 text-sm font-bold">إجمالي النقاط</p>
+            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{loading ? '...' : stats.totalTayo}</h3>
+          </div>
+        </motion.div>
+      </div>
+
+      <div className="mt-12">
+        <div className="flex items-center justify-between mb-10 border-r-4 border-maroon pr-4">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-bold text-stone-800 dark:text-dark-text">الوصول السريع</h2>
+            <p className="text-stone-500 text-sm mt-1 italic">اختر الخدمة التي تود البدء بها</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+          {visibleCards.map((card, index) => (
+            <motion.button
+              key={card.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05, duration: 0.4 }}
+              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setActiveTab(card.id)}
+              className="bg-white dark:bg-dark-surface rounded-[2.5rem] shadow-sm hover:shadow-md transition-all border border-stone-100 dark:border-dark-border flex flex-col items-center justify-center gap-5 group cursor-pointer p-8 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-stone-50 dark:bg-dark-bg/20 rounded-bl-[4rem] -mr-8 -mt-8 transition-all group-hover:w-32 group-hover:h-32" />
+              
+              <div className={`w-20 h-20 md:w-24 md:h-24 ${card.color === 'maroon' ? 'bg-maroon/5' : 'bg-gold/5'} rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500 relative z-10`}>
+                <card.icon size={36} className={card.color === 'maroon' ? 'text-maroon' : 'text-gold'} />
+              </div>
+              
+              <div className="text-center relative z-10">
+                <span className="text-base md:text-xl font-bold text-stone-800 dark:text-dark-text block mb-1">{card.label}</span>
+                <p className="text-[10px] md:text-xs text-stone-400 font-medium mb-3">{card.desc}</p>
+                <div className={`h-1 w-8 mx-auto rounded-full transition-all duration-300 ${card.color === 'maroon' ? 'bg-maroon/20 group-hover:w-16 group-hover:bg-maroon' : 'bg-gold/20 group-hover:w-16 group-hover:bg-gold'}`} />
+              </div>
+            </motion.button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -3602,13 +3975,13 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
   }, []);
 
   const tabs = [
-    { id: 'analytics', label: 'تحليلات', icon: LayoutDashboard },
-    { id: 'slider', label: 'الصور', icon: ImageIcon },
-    { id: 'staff', label: 'الخدام', icon: UserCog },
-    { id: 'students', label: 'الطلاب', icon: Users },
+    { id: 'analytics', label: 'التحليلات العامة', icon: LayoutDashboard },
+    { id: 'slider', label: 'إدارة الصور', icon: ImageIcon },
+    { id: 'staff', label: 'إدارة الخدام', icon: UserCog },
+    { id: 'students', label: 'إدارة الطلاب', icon: Users },
     { id: 'exams', label: 'روابط الامتحانات', icon: BookOpen },
-    { id: 'events', label: 'الأحداث', icon: Calendar },
-    { id: 'curricula', label: 'المناهج', icon: BookOpen },
+    { id: 'events', label: 'إدارة الأحداث', icon: Calendar },
+    { id: 'curricula', label: 'إدارة الموارد', icon: BookOpen },
   ];
 
   if (loading) return <div className="p-8 animate-pulse text-[#800000] font-bold">جاري تحميل لوحة التحكم...</div>;

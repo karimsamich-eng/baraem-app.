@@ -3153,6 +3153,7 @@ export const StaffManager = () => {
   const [isDeletingImage, setIsDeletingImage] = useState<string | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedImageForCrop, setSelectedImageForCrop] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
@@ -3194,9 +3195,44 @@ export const StaffManager = () => {
 
   const handleAddMember = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
+    
     const formData = new FormData(e.currentTarget);
     const docRef = doc(collection(db, 'staff'));
     let imageUrl = photoBase64;
+
+    const newMember = {
+      name: formData.get('name') as string,
+      responsibility: formData.get('responsibility') as string,
+      role: formData.get('role') as any,
+      squad: formData.get('squad') as any,
+      rating: rating,
+      imageUrl: imageUrl || null,
+      updatedAt: new Date().toISOString(),
+      updatedBy: user?.username || '',
+    };
+
+    // Plan C: Local-first fallback
+    const saveToLocalStorage = () => {
+      try {
+        const localStaff = JSON.parse(localStorage.getItem('pending_staff') || '[]');
+        localStorage.setItem('pending_staff', JSON.stringify([...localStaff, { ...newMember, id: docRef.id, isPending: true }]));
+        setStaff(prev => [...prev, { ...newMember, id: docRef.id, isPending: true } as StaffMember]);
+        addToast('تم الحفظ محلياً (فشل الاتصال بالخادم)', 'info');
+        setIsAdding(false);
+        setIsSaving(false);
+      } catch (err) {
+        console.error('Local storage fallback failed:', err);
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      if (isSaving) {
+        console.warn('Firebase save timed out, falling back to local storage');
+        saveToLocalStorage();
+      }
+    }, 5000);
 
     try {
       if (photoBase64 && photoBase64.startsWith('data:image')) {
@@ -3205,27 +3241,23 @@ export const StaffManager = () => {
         const storageRef = ref(storage, `staff/${docRef.id}`);
         await uploadBytes(storageRef, blob);
         imageUrl = await getDownloadURL(storageRef);
+        newMember.imageUrl = imageUrl;
       }
 
-      const newMember = {
-        name: formData.get('name') as string,
-        responsibility: formData.get('responsibility') as string,
-        role: formData.get('role') as any,
-        squad: formData.get('squad') as any,
-        rating: rating,
-        imageUrl: imageUrl || null,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user?.username || '',
-      };
-
       await setDoc(docRef, { ...newMember, id: docRef.id });
+      clearTimeout(timeout);
       setIsAdding(false);
       setPhotoBase64(null);
       setRating(5);
       addToast('تم إضافة العضو بنجاح', 'success');
     } catch (error) {
+      clearTimeout(timeout);
+      console.error('Add member failed:', error);
       handleFirestoreError(error, OperationType.CREATE, 'staff');
-      addToast('فشل إضافة العضو', 'error');
+      addToast('فشل إضافة العضو - سيتم المحاولة لاحقاً', 'error');
+      saveToLocalStorage();
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -3299,7 +3331,9 @@ export const StaffManager = () => {
 
   const handleEditMember = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editingMember) return;
+    if (!editingMember || isSaving) return;
+    setIsSaving(true);
+    
     const formData = new FormData(e.currentTarget);
     let imageUrl = photoBase64 || editingMember.imageUrl || null;
 
@@ -3329,8 +3363,11 @@ export const StaffManager = () => {
       setRating(5);
       addToast('تم تحديث بيانات العضو بنجاح', 'success');
     } catch (error) {
+      console.error('Edit member failed:', error);
       handleFirestoreError(error, OperationType.UPDATE, 'staff');
       addToast('فشل تحديث بيانات العضو', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -3339,7 +3376,7 @@ export const StaffManager = () => {
       <header className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 md:mb-12 gap-6">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">إدارة الهيكل التنظيمي</h1>
-          <p className="text-stone-500 italic">إضافة وتعديل بيانات الخدام</p>
+          <p className="text-stone-700 italic font-medium">إضافة وتعديل بيانات الخدام</p>
         </div>
         <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
@@ -3505,7 +3542,7 @@ export const StaffManager = () => {
                       }} />
                     </label>
                   </div>
-                  <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">انقر لتغيير الصورة</p>
+                  <p className="text-[10px] text-stone-600 mt-2 font-bold uppercase tracking-widest">انقر لتغيير الصورة</p>
                 </div>
 
                 {/* Image Editor Modal for Staff Photo */}
@@ -3530,15 +3567,15 @@ export const StaffManager = () => {
 
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 mr-1">الاسم</label>
+                    <label className="text-xs font-bold text-stone-700 mr-1">الاسم</label>
                     <input name="name" defaultValue={editingMember?.name} required className="input-clean" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 mr-1">المسئولية</label>
+                    <label className="text-xs font-bold text-stone-700 mr-1">المسئولية</label>
                     <input name="responsibility" defaultValue={editingMember?.responsibility} required className="input-clean" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 mr-1">الرتبة / الدور</label>
+                    <label className="text-xs font-bold text-stone-700 mr-1">الرتبة / الدور</label>
                     <select name="role" defaultValue={editingMember?.role || 'المدرسين'} className="input-clean">
                       <option value="القمص المسئول">القمص المسئول</option>
                       <option value="القس المسئول">القس المسئول</option>
@@ -3548,7 +3585,7 @@ export const StaffManager = () => {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-stone-500 mr-1">الفرقة</label>
+                    <label className="text-xs font-bold text-stone-700 mr-1">الفرقة</label>
                     <select name="squad" defaultValue={editingMember?.squad || 'عام'} className="input-clean">
                       <option value="الأولى">الفرقة الأولى</option>
                       <option value="الثانية">الفرقة الثانية</option>
@@ -3556,7 +3593,7 @@ export const StaffManager = () => {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-stone-500 mr-1">التقييم</label>
+                    <label className="text-xs font-bold text-stone-700 mr-1">التقييم</label>
                     <div className="flex items-center justify-center gap-3 bg-stone-50 py-3 rounded-2xl border border-stone-100">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
@@ -3577,8 +3614,28 @@ export const StaffManager = () => {
                 </div>
 
                 <div className="flex gap-4 pt-6">
-                  <button type="submit" className="flex-1 btn-primary shadow-lg shadow-[#800000]/20">حفظ البيانات</button>
-                  <button type="button" onClick={() => { setIsAdding(false); setEditingMember(null); }} className="flex-1 py-3 text-stone-500 font-bold hover:bg-stone-50 rounded-2xl transition-colors">إلغاء</button>
+                  <button 
+                    type="submit" 
+                    disabled={isSaving}
+                    className="flex-1 btn-primary shadow-lg shadow-[#800000]/20 flex items-center justify-center gap-2"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      'حفظ البيانات'
+                    )}
+                  </button>
+                  <button 
+                    type="button" 
+                    disabled={isSaving}
+                    onClick={() => { setIsAdding(false); setEditingMember(null); }} 
+                    className="flex-1 py-3 text-stone-700 font-bold hover:bg-stone-50 rounded-2xl transition-colors disabled:opacity-50"
+                  >
+                    إلغاء
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -4254,7 +4311,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                   referrerPolicy="no-referrer"
                 />
                 <h1 className="text-xl md:text-5xl font-bold text-[#800000] mb-2">مرحباً بك من جديد</h1>
-                <p className="text-stone-500 text-sm md:text-lg italic">لوحة تحكم إدارة خدمة البراعم</p>
+                <p className="text-stone-700 text-sm md:text-lg italic font-medium">لوحة تحكم إدارة خدمة البراعم</p>
               </motion.header>
 
               <div className="mb-8 md:mb-12">

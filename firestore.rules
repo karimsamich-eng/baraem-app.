@@ -70,6 +70,11 @@ service cloud.firestore {
       allow write: if isCoordinator();
     }
 
+    match /group_analytics/{gradeId} {
+      allow read: if isAuthenticated();
+      allow write: if isCoordinator() || isTayo();
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());

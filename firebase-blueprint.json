@@ -229,6 +229,22 @@
         "createdBy": { "type": "string", "description": "Username of the user who added the slide." }
       },
       "required": ["imageUrl", "order", "createdAt", "createdBy"]
+    },
+    "GroupAnalytics": {
+      "title": "Group Analytics",
+      "description": "Aggregated Tyo points for a specific grade or group.",
+      "type": "object",
+      "properties": {
+        "grade": { "type": "string", "description": "The grade level (e.g., grade_1, grade_2)." },
+        "total_tyo_points": { "type": "number", "description": "Total Tyo points for this grade." },
+        "attendance": { "type": "number", "description": "Total attendance points." },
+        "behavior": { "type": "number", "description": "Total behavior points." },
+        "interaction": { "type": "number", "description": "Total interaction points." },
+        "practical": { "type": "number", "description": "Total practical service points." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the record was last updated." },
+        "history": { "type": "array", "description": "History of point resets." }
+      },
+      "required": ["grade", "total_tyo_points", "updatedAt"]
     }
   },
   "firestore": {
@@ -247,6 +263,7 @@
     "/exam_links": { "schema": "ExamLink", "description": "Collection of monthly exam links." },
     "/acceptance_evaluations": { "schema": "AcceptanceEvaluation", "description": "Collection of acceptance evaluations." },
     "/dashboard_stats": { "schema": "DashboardStats", "description": "Collection of dashboard statistics." },
-    "/settings": { "schema": "Settings", "description": "Collection of application-wide settings." }
+    "/settings": { "schema": "Settings", "description": "Collection of application-wide settings." },
+    "/group_analytics": { "schema": "GroupAnalytics", "description": "Collection of aggregated Tyo points per grade." }
   }
 }

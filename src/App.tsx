@@ -2128,6 +2128,17 @@ const TayoScoring = () => {
                          editingGrade.subject === 'تفاعل' ? 'interactionPoints' : 'practicalPoints';
         await updateDoc(studentRef, { [oldField]: increment(-editingGrade.score) });
         
+        // Update group analytics (revert old)
+        const analyticsRef = doc(db, 'group_analytics', `grade_${selectedStudent.gradeLevel}`);
+        const oldBreakdownField = editingGrade.subject === 'حضور' ? 'attendance' :
+                                  editingGrade.subject === 'سلوك' ? 'behavior' :
+                                  editingGrade.subject === 'تفاعل' ? 'interaction' : 'practical';
+        await setDoc(analyticsRef, {
+          total_tyo_points: increment(-editingGrade.score),
+          [oldBreakdownField]: increment(-editingGrade.score),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
         // Update grade doc
         await updateDoc(doc(db, 'grades', editingGrade.id), newGrade);
         
@@ -2136,6 +2147,16 @@ const TayoScoring = () => {
                          newGrade.subject === 'سلوك' ? 'behaviorPoints' :
                          newGrade.subject === 'تفاعل' ? 'interactionPoints' : 'practicalPoints';
         await updateDoc(studentRef, { [newField]: increment(newGrade.score) });
+
+        // Update group analytics (add new)
+        const newBreakdownField = newGrade.subject === 'حضور' ? 'attendance' :
+                                  newGrade.subject === 'سلوك' ? 'behavior' :
+                                  newGrade.subject === 'تفاعل' ? 'interaction' : 'practical';
+        await setDoc(analyticsRef, {
+          total_tyo_points: increment(newGrade.score),
+          [newBreakdownField]: increment(newGrade.score),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
         
         addToast('تم تعديل التقييم بنجاح', 'success');
       } else {
@@ -2150,6 +2171,19 @@ const TayoScoring = () => {
         await updateDoc(studentRef, {
           [fieldToUpdate]: increment(newGrade.score)
         });
+
+        // Update group analytics
+        const analyticsRef = doc(db, 'group_analytics', `grade_${selectedStudent.gradeLevel}`);
+        const breakdownField = newGrade.subject === 'حضور' ? 'attendance' :
+                               newGrade.subject === 'سلوك' ? 'behavior' :
+                               newGrade.subject === 'تفاعل' ? 'interaction' : 'practical';
+        await setDoc(analyticsRef, {
+          total_tyo_points: increment(newGrade.score),
+          [breakdownField]: increment(newGrade.score),
+          grade: selectedStudent.gradeLevel,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
         addToast('تم إضافة التقييم بنجاح', 'success');
       }
 
@@ -2178,6 +2212,17 @@ const TayoScoring = () => {
             await updateDoc(studentRef, {
               [fieldToUpdate]: increment(-grade.score)
             });
+
+            // Update group analytics (revert)
+            const analyticsRef = doc(db, 'group_analytics', `grade_${selectedStudent.gradeLevel}`);
+            const breakdownField = grade.subject === 'حضور' ? 'attendance' :
+                                   grade.subject === 'سلوك' ? 'behavior' :
+                                   grade.subject === 'تفاعل' ? 'interaction' : 'practical';
+            await setDoc(analyticsRef, {
+              total_tyo_points: increment(-grade.score),
+              [breakdownField]: increment(-grade.score),
+              updatedAt: new Date().toISOString()
+            }, { merge: true });
           }
           
           addToast('تم حذف التقييم بنجاح', 'success');
@@ -3962,6 +4007,7 @@ export const EventsManager = () => {
 
 export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
   const [activeTab, setActiveTabLocal] = useState('analytics');
+  const [selectedGrade, setSelectedGrade] = useState('all');
   const [stats, setStats] = useState({ 
     students: 0, 
     attendanceToday: 0, 
@@ -3969,36 +4015,190 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
     totalTayo: 0
   });
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { addToast } = useToast();
+  const { confirm } = useConfirm();
 
   useEffect(() => {
-    const fetchStats = async () => {
+    let unsubscribeAnalytics: () => void;
+
+    const fetchBaseStats = async () => {
       try {
         const studentsSnap = await getDocs(collection(db, 'students'));
         const today = new Date().toISOString().split('T')[0];
         const attendanceSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')));
-        const gradesSnap = await getDocs(collection(db, 'grades'));
         
-        let totalTayo = 0;
-        let tayoBreakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
-        
-        gradesSnap.forEach(doc => {
-          const data = doc.data();
-          totalTayo += data.score;
-          if (data.subject === 'حضور') tayoBreakdown.attendance += data.score;
-          else if (data.subject === 'سلوك') tayoBreakdown.behavior += data.score;
-          else if (data.subject === 'تفاعل') tayoBreakdown.interaction += data.score;
-          else if (data.subject === 'خدمة عملية') tayoBreakdown.practical += data.score;
-        });
-        
-        setStats({ students: studentsSnap.size, attendanceToday: attendanceSnap.size, tayoBreakdown, totalTayo });
+        setStats(prev => ({ 
+          ...prev, 
+          students: studentsSnap.size, 
+          attendanceToday: attendanceSnap.size 
+        }));
       } catch (error) {
         handleFirestoreError(error, OperationType.LIST, 'dashboard_stats');
       } finally {
         setLoading(false);
       }
     };
-    fetchStats();
-  }, []);
+
+    fetchBaseStats();
+
+    // Real-time analytics aggregation
+    if (selectedGrade === 'all') {
+      unsubscribeAnalytics = onSnapshot(collection(db, 'group_analytics'), (snap) => {
+        let totalTayo = 0;
+        let tayoBreakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
+        
+        snap.forEach(doc => {
+          const data = doc.data();
+          totalTayo += data.total_tyo_points || 0;
+          tayoBreakdown.attendance += data.attendance || 0;
+          tayoBreakdown.behavior += data.behavior || 0;
+          tayoBreakdown.interaction += data.interaction || 0;
+          tayoBreakdown.practical += data.practical || 0;
+        });
+        
+        setStats(prev => ({ ...prev, tayoBreakdown, totalTayo }));
+      });
+    } else {
+      unsubscribeAnalytics = onSnapshot(doc(db, 'group_analytics', `grade_${selectedGrade}`), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setStats(prev => ({ 
+            ...prev, 
+            totalTayo: data.total_tyo_points || 0,
+            tayoBreakdown: {
+              attendance: data.attendance || 0,
+              behavior: data.behavior || 0,
+              interaction: data.interaction || 0,
+              practical: data.practical || 0
+            }
+          }));
+        } else {
+          setStats(prev => ({ 
+            ...prev, 
+            totalTayo: 0,
+            tayoBreakdown: { attendance: 0, behavior: 0, interaction: 0, practical: 0 }
+          }));
+        }
+      });
+    }
+
+    return () => {
+      if (unsubscribeAnalytics) unsubscribeAnalytics();
+    };
+  }, [selectedGrade]);
+
+  const handleResetPoints = async () => {
+    if (selectedGrade === 'all') {
+      addToast('يرجى اختيار مرحلة محددة لتصفير نقاطها', 'info');
+      return;
+    }
+
+    confirm({
+      title: 'تصفير النقاط',
+      message: `هل أنت متأكد من تصفير نقاط ${selectedGrade}؟ سيتم حفظ المجموع الحالي في السجل.`,
+      onConfirm: async () => {
+        try {
+          const analyticsRef = doc(db, 'group_analytics', `grade_${selectedGrade}`);
+          const docSnap = await getDoc(analyticsRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const historyEntry = {
+              total: data.total_tyo_points || 0,
+              breakdown: {
+                attendance: data.attendance || 0,
+                behavior: data.behavior || 0,
+                interaction: data.interaction || 0,
+                practical: data.practical || 0
+              },
+              resetAt: new Date().toISOString(),
+              resetBy: user?.username || 'admin'
+            };
+
+            await updateDoc(analyticsRef, {
+              total_tyo_points: 0,
+              attendance: 0,
+              behavior: 0,
+              interaction: 0,
+              practical: 0,
+              history: increment(1) ? [historyEntry, ...(data.history || [])].slice(0, 10) : [historyEntry]
+            });
+            
+            addToast('تم تصفير النقاط بنجاح', 'success');
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, 'group_analytics');
+          addToast('فشل تصفير النقاط', 'error');
+        }
+      }
+    });
+  };
+
+  const handleSyncData = async () => {
+    setLoading(true);
+    try {
+      const gradesSnap = await getDocs(collection(db, 'grades'));
+      const studentsSnap = await getDocs(collection(db, 'students'));
+      const studentMap: Record<string, string> = {};
+      studentsSnap.forEach(doc => {
+        studentMap[doc.id] = doc.data().gradeLevel;
+      });
+
+      const gradeTotals: Record<string, any> = {};
+
+      gradesSnap.forEach(doc => {
+        const data = doc.data();
+        const grade = studentMap[data.studentId];
+        if (!grade) return;
+
+        if (!gradeTotals[grade]) {
+          gradeTotals[grade] = {
+            total_tyo_points: 0,
+            attendance: 0,
+            behavior: 0,
+            interaction: 0,
+            practical: 0,
+            grade: grade
+          };
+        }
+
+        gradeTotals[grade].total_tyo_points += data.score;
+        if (data.subject === 'حضور') gradeTotals[grade].attendance += data.score;
+        else if (data.subject === 'سلوك') gradeTotals[grade].behavior += data.score;
+        else if (data.subject === 'تفاعل') gradeTotals[grade].interaction += data.score;
+        else if (data.subject === 'خدمة عملية') gradeTotals[grade].practical += data.score;
+      });
+
+      for (const grade in gradeTotals) {
+        await setDoc(doc(db, 'group_analytics', `grade_${grade}`), {
+          ...gradeTotals[grade],
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      addToast('تمت مزامنة البيانات بنجاح', 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'sync_analytics');
+      addToast('فشل مزامنة البيانات', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const grades = ['all', 'grade_1', 'grade_2', 'grade_3', 'grade_4', 'grade_5', 'grade_6', 'preparatory_1', 'preparatory_2', 'preparatory_3'];
+  const gradeLabels: Record<string, string> = {
+    'all': 'كل المراحل',
+    'grade_1': 'الصف الأول',
+    'grade_2': 'الصف الثاني',
+    'grade_3': 'الصف الثالث',
+    'grade_4': 'الصف الرابع',
+    'grade_5': 'الصف الخامس',
+    'grade_6': 'الصف السادس',
+    'preparatory_1': 'أول إعدادي',
+    'preparatory_2': 'ثاني إعدادي',
+    'preparatory_3': 'ثالث إعدادي'
+  };
 
   const tabs = [
     { id: 'analytics', label: 'التحليلات العامة', icon: LayoutDashboard },
@@ -4061,6 +4261,43 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                 <HeroSlider />
               </div>
               
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 w-full max-w-4xl">
+                <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-stone-100 w-full md:w-auto">
+                  <Filter size={20} className="text-gold ml-2" />
+                  <select 
+                    value={selectedGrade}
+                    onChange={(e) => setSelectedGrade(e.target.value)}
+                    className="bg-transparent font-bold text-stone-700 outline-none cursor-pointer"
+                  >
+                    {grades.map(g => (
+                      <option key={g} value={g}>{gradeLabels[g]}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {user?.role === 'coordinator' && (
+                  <div className="flex items-center gap-2">
+                    {selectedGrade !== 'all' && (
+                      <button 
+                        onClick={handleResetPoints}
+                        className="flex items-center gap-2 px-6 py-3 bg-royal-red/10 text-royal-red rounded-2xl font-bold hover:bg-royal-red hover:text-white transition-all shadow-sm"
+                      >
+                        <Trash2 size={20} />
+                        تصفير النقاط
+                      </button>
+                    )}
+                    <button 
+                      onClick={handleSyncData}
+                      className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                      title="مزامنة البيانات من السجلات القديمة"
+                    >
+                      <Save size={20} />
+                      مزامنة البيانات
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
                 <motion.div whileHover={{ y: -5 }} className="card-clean p-8 border-t-4 border-t-[#800000]">
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Users size={24} /></div>

@@ -3106,6 +3106,8 @@ export const StaffManager = () => {
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
   const [editingImage, setEditingImage] = useState<StaffMember | null>(null);
   const [isDeletingImage, setIsDeletingImage] = useState<string | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [selectedImageForCrop, setSelectedImageForCrop] = useState<string | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
@@ -3450,12 +3452,36 @@ export const StaffManager = () => {
                       <Upload className="text-white" size={20} />
                       <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (file) setPhotoBase64(await fileToBase64(file));
+                        if (file) {
+                          const base64 = await fileToBase64(file);
+                          setSelectedImageForCrop(base64);
+                          setIsEditorOpen(true);
+                        }
                       }} />
                     </label>
                   </div>
                   <p className="text-[10px] text-stone-400 mt-2 font-bold uppercase tracking-widest">انقر لتغيير الصورة</p>
                 </div>
+
+                {/* Image Editor Modal for Staff Photo */}
+                {isEditorOpen && selectedImageForCrop && (
+                  <LogoEditorModal
+                    isOpen={isEditorOpen}
+                    initialImage={selectedImageForCrop}
+                    onSave={async (croppedBase64) => {
+                      setPhotoBase64(croppedBase64);
+                      setIsEditorOpen(false);
+                      setSelectedImageForCrop(null);
+                    }}
+                    onClose={() => {
+                      setIsEditorOpen(false);
+                      setSelectedImageForCrop(null);
+                    }}
+                    title="تعديل صورة الخادم"
+                    aspectRatio={1}
+                    circular={true}
+                  />
+                )}
 
                 <div className="space-y-4">
                   <div className="space-y-1">

@@ -107,6 +107,11 @@ service cloud.firestore {
       allow write: if isCoordinator();
     }
 
+    match /tyo_evaluations/{evalId} {
+      allow read: if isServant();
+      allow write: if isTayo() || isCoordinator();
+    }
+
     match /resources/{resourceId} {
       allow read: if isServant();
       allow write: if isCoordinator();
@@ -134,7 +139,7 @@ service cloud.firestore {
 
     match /staff/{memberId} {
       allow read: if true; // Publicly readable for the staff list
-      allow write: if isCoordinator();
+      allow write: if isStaff();
     }
 
     match /events/{eventId} {

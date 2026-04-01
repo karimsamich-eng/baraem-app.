@@ -48,6 +48,14 @@ const generatePDFReport = async (reportData: any, type: 'attendance' | 'tayo' | 
   const pdfDoc = await createPDFDocument(reportData, user.displayName);
   const pdfBase64 = pdfDoc.output('datauristring');
   
+  // Open the PDF in a new tab
+  const blob = pdfDoc.output('blob');
+  const pdfUrl = URL.createObjectURL(blob);
+  const newWindow = window.open(pdfUrl, '_blank');
+  if (!newWindow) {
+    console.warn('Popup blocked. Could not open the report in a new tab.');
+  }
+  
   // Save metadata and data to Firestore (avoiding large PDF string)
   try {
     const reportRef = doc(collection(db, 'reports'));
@@ -292,7 +300,7 @@ const ConfirmProvider = ({ children }: { children: ReactNode }) => {
       {children}
       <AnimatePresence>
         {options && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -931,7 +939,7 @@ const PracticalService = () => {
 
       <AnimatePresence>
         {isAdding && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1322,7 +1330,7 @@ const ResourceManager = () => {
 
       <AnimatePresence>
         {isAdding && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1383,7 +1391,7 @@ const ResourceManager = () => {
           </div>
         )}
         {editingResource && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -1704,7 +1712,7 @@ const StudentList = () => {
 
       <AnimatePresence>
         {(isAdding || editingStudent) && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -2025,7 +2033,7 @@ const AttendanceTracker = () => {
 
       <AnimatePresence>
         {notePrompt && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -2529,7 +2537,7 @@ const TayoScoring = () => {
 
       <AnimatePresence>
         {isAdding && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -2929,9 +2937,8 @@ function StaffPage() {
             onChange={(e) => setSquadFilter(e.target.value)}
           >
             <option value="الكل">كل الفرق</option>
-            <option value="الأولى">الفرقة الأولى</option>
-            <option value="الثانية">الفرقة الثانية</option>
-            <option value="عام">عام</option>
+            <option value="الفرقة الأولى">الفرقة الأولى</option>
+            <option value="الفرقة الثانية">الفرقة الثانية</option>
           </select>
         </div>
       </header>
@@ -3237,7 +3244,7 @@ const ReportsInbox = () => {
 
       <AnimatePresence>
         {previewUrl && (
-          <div className="fixed inset-0 bg-stone-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 lg:p-12">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -3553,9 +3560,8 @@ export const StaffManager = () => {
             onChange={(e) => setSquadFilter(e.target.value)}
           >
             <option value="الكل">كل الفرق</option>
-            <option value="الأولى">الفرقة الأولى</option>
-            <option value="الثانية">الفرقة الثانية</option>
-            <option value="عام">عام</option>
+            <option value="الفرقة الأولى">الفرقة الأولى</option>
+            <option value="الفرقة الثانية">الفرقة الثانية</option>
           </select>
           <button 
             type="button"
@@ -3694,7 +3700,7 @@ export const StaffManager = () => {
           />
         )}
         {(isAdding || editingMember) && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-stone-100">
               <h2 className="text-3xl font-serif font-bold text-[#800000] mb-8 text-center">{editingMember ? 'تعديل بيانات العضو' : 'إضافة عضو جديد'}</h2>
               <form onSubmit={editingMember ? handleEditMember : handleAddMember} className="space-y-6">
@@ -3761,10 +3767,9 @@ export const StaffManager = () => {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-[#333333] mr-1">الفرقة</label>
-                    <select name="squad" defaultValue={editingMember?.squad || 'عام'} className="input-clean text-[#333333]">
-                      <option value="الأولى">الفرقة الأولى</option>
-                      <option value="الثانية">الفرقة الثانية</option>
-                      <option value="عام">عام</option>
+                    <select name="squad" defaultValue={editingMember?.squad || 'الفرقة الأولى'} className="input-clean text-[#333333]">
+                      <option value="الفرقة الأولى">الفرقة الأولى</option>
+                      <option value="الفرقة الثانية">الفرقة الثانية</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -4210,7 +4215,7 @@ export const EventsManager = () => {
 
       <AnimatePresence>
         {isAdding && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl border border-stone-100">
               <h2 className="text-3xl font-serif font-bold text-[#800000] mb-8 text-center">إضافة حدث جديد</h2>
               <form onSubmit={handleAddEvent} className="space-y-6">
@@ -4449,18 +4454,11 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
     }
   };
 
-  const grades = ['all', 'grade_1', 'grade_2', 'grade_3', 'grade_4', 'grade_5', 'grade_6', 'preparatory_1', 'preparatory_2', 'preparatory_3'];
+  const grades = ['all', 'الفرقة الأولى', 'الفرقة الثانية'];
   const gradeLabels: Record<string, string> = {
-    'all': 'كل المراحل',
-    'grade_1': 'الصف الأول',
-    'grade_2': 'الصف الثاني',
-    'grade_3': 'الصف الثالث',
-    'grade_4': 'الصف الرابع',
-    'grade_5': 'الصف الخامس',
-    'grade_6': 'الصف السادس',
-    'preparatory_1': 'أول إعدادي',
-    'preparatory_2': 'ثاني إعدادي',
-    'preparatory_3': 'ثالث إعدادي'
+    'all': 'كل الفرق',
+    'الفرقة الأولى': 'الفرقة الأولى',
+    'الفرقة الثانية': 'الفرقة الثانية'
   };
 
   const tabs = [
@@ -4796,7 +4794,7 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
 
       <AnimatePresence>
         {selectedAlert && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -4997,7 +4995,7 @@ const AppContent = () => {
           </div>
 
           {/* Center: Dynamic Logo (Nested in Arc) */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-12 md:top-14">
+          <div className="absolute left-1/2 -translate-x-1/2 top-12 md:top-14 z-[9999]">
             <button onClick={() => setActiveTab('hub')} className="relative">
               <TearDropLogo />
             </button>

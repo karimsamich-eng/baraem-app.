@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Student, AttendanceRecord, GradeRecord } from '../types';
 import { X, Download, Loader2 } from 'lucide-react';
@@ -12,10 +12,13 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [grades, setGrades] = useState<GradeRecord[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [tyoEvaluations, setTyoEvaluations] = useState<any[]>([]);
   const [evaluation, setEvaluation] = useState<any | null>(null);
   const [annualNotes, setAnnualNotes] = useState(student.annualNotes || '');
   const [chartData, setChartData] = useState<any[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isAddingTyo, setIsAddingTyo] = useState(false);
+  const [isSavingTyo, setIsSavingTyo] = useState(false);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -40,6 +43,13 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
         const servList: any[] = [];
         servSnap.forEach(doc => servList.push({ id: doc.id, ...doc.data() }));
         setServices(servList);
+
+        // Tyo Evaluations
+        const tyoQ = query(collection(db, 'tyo_evaluations'), where('studentId', '==', student.id));
+        const tyoSnap = await getDocs(tyoQ);
+        const tyoList: any[] = [];
+        tyoSnap.forEach(doc => tyoList.push({ id: doc.id, ...doc.data() }));
+        setTyoEvaluations(tyoList);
 
         // Evaluation
         const evalQ = query(collection(db, 'acceptance_evaluations'), where('studentId', '==', student.id));
@@ -174,11 +184,22 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="modal-overlay">
       <div className="bg-white dark:bg-dark-surface rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-y-auto p-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-[#800000]">{student.name}</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-[#800000]">{student.name}</h2>
+            <span className="bg-gold/20 text-gold px-3 py-1 rounded-full text-sm font-bold border border-gold/30">
+              تقييم القبول: {evaluation?.totalScore || 'لم يتم التقييم'}
+            </span>
+          </div>
           <div className="flex gap-2">
+            <button 
+              onClick={() => setIsAddingTyo(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
+            >
+              <span>إضافة تقييم تايو</span>
+            </button>
             <button 
               onClick={handleDownloadPDF} 
               disabled={isDownloading}
@@ -288,8 +309,122 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
               )}
             </div>
           </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+            {/* Tyo Evaluations */}
+            <div className="card-clean p-6">
+              <h3 className="font-bold text-lg mb-4 text-stone-800">تقييم تايو</h3>
+              {tyoEvaluations.length === 0 ? (
+                <p className="text-stone-500">لا توجد تقييمات تايو مسجلة</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right">
+                    <thead>
+                      <tr className="border-b border-stone-200">
+                        <th className="py-2 px-4">ملاحظات</th>
+                        <th className="py-2 px-4">التاريخ</th>
+                        <th className="py-2 px-4">التقييم</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tyoEvaluations.map(t => (
+                        <tr key={t.id} className="border-b border-stone-100">
+                          <td className="py-2 px-4">{t.notes}</td>
+                          <td className="py-2 px-4">{t.date}</td>
+                          <td className="py-2 px-4">{t.rating}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
+      {isAddingTyo && (
+        <div className="modal-overlay">
+          <div className="bg-white dark:bg-dark-surface rounded-3xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-[#800000]">إضافة تقييم تايو</h2>
+              <button onClick={() => setIsAddingTyo(false)} className="p-2 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors">
+                <X size={24} className="text-stone-400" />
+              </button>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setIsSavingTyo(true);
+              const formData = new FormData(e.currentTarget);
+              try {
+                const tyoRef = doc(collection(db, 'tyo_evaluations'));
+                const newTyo = {
+                  id: tyoRef.id,
+                  studentId: student.id,
+                  date: formData.get('date'),
+                  notes: formData.get('notes'),
+                  rating: Number(formData.get('rating')),
+                  createdAt: new Date().toISOString()
+                };
+                await setDoc(tyoRef, newTyo);
+                setTyoEvaluations([...tyoEvaluations, newTyo]);
+                setIsAddingTyo(false);
+              } catch (error) {
+                handleFirestoreError(error, OperationType.WRITE, 'tyo_evaluations');
+              } finally {
+                setIsSavingTyo(false);
+              }
+            }} className="space-y-5">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الطالب</label>
+                <input type="text" value={student.name} readOnly className="input-clean bg-stone-50" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">نوع الخدمة</label>
+                <input type="text" value="تقييم تايو" readOnly className="input-clean bg-stone-50" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">ملاحظات (الوصف)</label>
+                <input name="notes" required className="input-clean" placeholder="ماذا فعل الطالب؟" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التقييم (النقاط)</label>
+                  <input name="rating" type="number" min="20" max="20" required className="input-clean bg-stone-50" readOnly defaultValue={20} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التاريخ</label>
+                  <input name="date" type="date" defaultValue={new Date().toISOString().split('T')[0]} required className="input-clean" />
+                </div>
+              </div>
+              <div className="pt-4 flex gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsAddingTyo(false)}
+                  className="flex-1 py-3 rounded-xl font-bold text-stone-700 hover:bg-stone-50 transition-colors"
+                >
+                  إلغاء
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSavingTyo}
+                  className="flex-1 btn-primary py-3 flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {isSavingTyo ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    'حفظ التقييم'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

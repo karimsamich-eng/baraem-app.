@@ -7,18 +7,38 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
   --color-maroon: #800000;
-  --color-gold: #A67C00;
+  --color-royal-red: #800000;
+  --color-gold: #FFD700;
   --color-off-white: #FFFFFF;
-  --color-vanilla: #FDF5E6;
+  --color-vanilla: #F3E5AB;
 }
 
 @layer base {
   * { box-sizing: border-box; }
   body {
-    @apply font-sans bg-vanilla text-[#212121] transition-colors duration-300 overflow-x-hidden;
+    @apply font-sans bg-vanilla text-gold transition-colors duration-300 overflow-x-hidden;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     position: relative;
+  }
+
+  /* Force specific text elements to be gold with text-shadow */
+  p, span, h1, h2, h3, label {
+    color: #FFD700 !important;
+    text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  /* Override any white text to be gold */
+  .text-white {
+    color: #FFD700 !important;
+  }
+  
+  svg {
+    stroke: #FFD700 !important;
+  }
+  
+  svg[fill]:not([fill="none"]) {
+    fill: #FFD700 !important;
   }
 
   body::before {
@@ -52,7 +72,7 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #F5F5F0;
+    background: #F3E5AB;
   }
 
   ::-webkit-scrollbar-thumb {
@@ -67,13 +87,13 @@
   /* For Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #800000 #FFFFFF;
+    scrollbar-color: #800000 #F3E5AB;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-[#800000] text-white px-6 py-3 rounded-lg font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-all shadow-md active:scale-95;
+    @apply bg-[#800000] text-[#FFD700] px-6 py-3 rounded-lg font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-all shadow-md active:scale-95;
   }
   
   .card-clean {
@@ -81,23 +101,26 @@
   }
   
   .interactive-card {
-    @apply border-[rgba(128,0,0,0.1)] transition-all duration-200 hover:ring-2 hover:ring-[#800000] hover:border-transparent hover:shadow-xl hover:-translate-y-1;
+    @apply border-[rgba(128,0,0,0.1)] transition-all duration-200 hover:ring-2 hover:ring-[#800000] hover:border-transparent hover:shadow-xl hover:-translate-y-1 hover:bg-[#800000]/5;
+  }
+  
+  .modal-overlay {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    z-index: 9999 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: rgba(28, 25, 23, 0.6) !important;
+    backdrop-filter: blur(4px) !important;
   }
   
   .border-stone-100, .border-stone-200 {
     border-color: rgba(128, 0, 0, 0.1) !important;
-  }
-  
-  .text-stone-300 {
-    color: #a8a29e !important; /* Equivalent to text-stone-400 */
-  }
-  
-  .text-stone-400 {
-    color: #78716c !important; /* Equivalent to text-stone-500 */
-  }
-  
-  .text-stone-500 {
-    color: #57534e !important; /* Equivalent to text-stone-600 */
   }
   
   .bg-stone-50 {
@@ -152,5 +175,6 @@
     box-shadow: 0 0 0 2px #800000, 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
     border-color: transparent !important;
     transform: translateY(-4px);
+    background-color: rgba(128, 0, 0, 0.05) !important;
   }
 }

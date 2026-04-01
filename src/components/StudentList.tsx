@@ -223,7 +223,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
 
       <AnimatePresence>
         {(isAdding || editingStudent) && (
-          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="modal-overlay">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}

@@ -20,6 +20,7 @@
   --color-charcoal: var(--text-charcoal);
   --color-off-white: var(--card-bg);
   --color-vanilla: var(--bg-main);
+  --color-gold: #FFD700;
 }
 
 @layer base {
@@ -51,13 +52,13 @@
     text-shadow: none !important;
   }
   
-  /* NO WHITE OR GOLD TEXT on vanilla background */
-  .text-white, .text-gold, .text-[#FFD700], .text-yellow-400, .text-yellow-500 {
+  /* NO WHITE OR GOLD TEXT on vanilla background - but allow it elsewhere like header */
+  .content-area .text-white, .content-area .text-gold {
     color: var(--primary-red) !important;
   }
   
   svg {
-    stroke: var(--primary-red);
+    stroke: currentColor;
   }
   
   svg[fill]:not([fill="none"]) {

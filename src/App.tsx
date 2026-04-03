@@ -2965,7 +2965,7 @@ function StaffPage() {
   }, []);
 
   const handleUpdateStaffImage = async (id: string, newBase64: string) => {
-    try {
+    const savePromise = (async () => {
       const response = await fetch(newBase64);
       const blob = await response.blob();
       const storageRef = ref(storage, `staff/${id}`);
@@ -2975,9 +2975,21 @@ function StaffPage() {
       await updateDoc(doc(db, 'staff', id), { imageUrl });
       addToast('تم تحديث الصورة بنجاح', 'success');
       setEditingImage(null);
-    } catch (error) {
-      console.error('Update staff image failed:', error);
-      addToast('فشل تحديث الصورة', 'error');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة رفع الصورة (10 ثواني). يرجى التحقق من الإنترنت.');
+      } else {
+        console.error('Update staff image failed:', error);
+        addToast('فشل تحديث الصورة', 'error');
+      }
     }
   };
 
@@ -3504,7 +3516,7 @@ export const StaffManager = () => {
       const formData = new FormData(e.currentTarget);
       let imageUrl = photoBase64 || editingMember.imageUrl;
 
-      const updatedMember = {
+      const updatedMember: any = {
         name: formData.get('name') as string,
         responsibility: formData.get('responsibility') as string,
         role: formData.get('role') as any,
@@ -3516,13 +3528,20 @@ export const StaffManager = () => {
       };
 
       if (photoBase64 && photoBase64.startsWith('data:image')) {
-        const response = await fetch(photoBase64);
-        const blob = await response.blob();
-        const storageRef = ref(storage, `staff/${editingMember.id}`);
-        await uploadBytes(storageRef, blob);
-        imageUrl = await getDownloadURL(storageRef);
-        updatedMember.imageUrl = imageUrl;
+        try {
+          const response = await fetch(photoBase64);
+          const blob = await response.blob();
+          const storageRef = ref(storage, `staff/${editingMember.id}`);
+          await uploadBytes(storageRef, blob);
+          imageUrl = await getDownloadURL(storageRef);
+          updatedMember.imageUrl = imageUrl;
+        } catch (uploadError) {
+          console.error('Image upload failed, falling back to existing image:', uploadError);
+          // If upload fails, we keep the old image if possible, or the base64 if we must (but base64 might fail Firestore limit)
+          updatedMember.imageUrl = editingMember.imageUrl;
+        }
       }
+      
       await updateDoc(doc(db, 'staff', editingMember.id), updatedMember);
       setEditingMember(null);
       setPhotoBase64(null);
@@ -3576,7 +3595,8 @@ export const StaffManager = () => {
   const handleUpdateStaffImage = async (id: string, newBase64: string) => {
     if (isSaving) return;
     setIsSaving(true);
-    try {
+    
+    const savePromise = (async () => {
       const response = await fetch(newBase64);
       const blob = await response.blob();
       const storageRef = ref(storage, `staff/${id}`);
@@ -3586,9 +3606,21 @@ export const StaffManager = () => {
       await updateDoc(doc(db, 'staff', id), { imageUrl });
       addToast('تم تحديث الصورة بنجاح', 'success');
       setEditingImage(null);
-    } catch (error) {
-      console.error('Update staff image failed:', error);
-      addToast('فشل تحديث الصورة', 'error');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة رفع الصورة (10 ثواني). يرجى التحقق من الإنترنت.');
+      } else {
+        console.error('Update staff image failed:', error);
+        addToast('فشل تحديث الصورة', 'error');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -3898,7 +3930,7 @@ export const StaffManager = () => {
                   <button 
                     type="button" 
                     disabled={isSaving}
-                    onClick={() => { setIsAdding(false); setEditingMember(null); }} 
+                    onClick={() => { setIsAdding(false); setEditingMember(null); setPhotoBase64(null); }} 
                     className="flex-1 py-3 text-stone-700 font-bold hover:bg-stone-50 rounded-2xl transition-all active:scale-95 disabled:opacity-50"
                   >
                     إلغاء
@@ -5060,12 +5092,12 @@ const AppContent = () => {
           </svg>
         </div>
 
-        <div className="relative h-16 flex items-center justify-between px-4 pointer-events-auto">
+        <div className="relative h-16 flex items-center justify-between px-4 pointer-events-auto z-50">
           {/* Left: Menu & Title */}
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-white transition-colors"
+              className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-gold transition-colors"
             >
               <Menu size={24} />
             </button>
@@ -5103,7 +5135,7 @@ const AppContent = () => {
                 </div>
                 <button 
                   onClick={() => logout()}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all border border-white/20"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gold/10 hover:bg-gold/20 text-gold rounded-lg transition-all border border-gold/20"
                 >
                   <LogOut size={18} />
                   <span className="font-bold text-sm hidden sm:inline">خروج</span>

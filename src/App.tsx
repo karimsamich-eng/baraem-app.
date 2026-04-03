@@ -120,6 +120,12 @@ const createPDFDocument = async (reportData: any, createdBy: string) => {
         align-items: center;
         justify-content: center;
       }
+      .logo-print {
+        -webkit-clip-path: circle(50% at 50% 50%);
+        clip-path: circle(50% at 50% 50%);
+        object-fit: cover;
+        background: transparent !important;
+      }
       .report-content {
         position: relative;
         z-index: 1;
@@ -127,12 +133,12 @@ const createPDFDocument = async (reportData: any, createdBy: string) => {
     </style>
     <div class="report-container">
       <div class="watermark">
-        <img src="${logo}" style="width: 100%; height: 100%; object-fit: contain;" />
+        <img src="${logo}" class="logo-print" style="width: 100%; height: 100%; object-fit: contain;" />
       </div>
       <div class="report-content">
         <div style="background-color: ${primaryColor}; color: white; padding: 30px; border-radius: 20px; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; flex-direction: row-reverse;">
           <div style="display: flex; align-items: center; gap: 20px; flex-direction: row-reverse;">
-            <img src="${logo}" style="width: 100px; height: 100px; object-fit: contain;" />
+            <img src="${logo}" class="logo-print" style="width: 100px; height: 100px; object-fit: contain;" />
             <div style="text-align: right;">
               <h1 style="margin: 0; font-size: 32px; font-weight: bold;">خدمة البراعم الأرثوذكسية</h1>
               <h2 style="margin: 10px 0 0 0; font-size: 22px; opacity: 0.9;">${reportData.title || 'تقرير'}</h2>
@@ -421,14 +427,14 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-dark-surface p-6 md:p-10 mx-4 md:mx-0 rounded-3xl shadow-xl max-w-md w-full text-center border border-stone-100 dark:border-dark-border relative z-10"
       >
-        <div className="mb-8 inline-flex items-center justify-center w-32 h-32 bg-white dark:bg-dark-bg rounded-full shadow-lg border border-stone-100 dark:border-dark-border p-2 overflow-hidden">
+        <div className="mb-8 inline-flex items-center justify-center w-32 h-32 bg-transparent rounded-full shadow-lg border border-stone-100 dark:border-dark-border p-2 overflow-hidden logo-element">
           {logoLoading ? (
             <div className="w-full h-full bg-[#800000]/10 animate-pulse rounded-full" />
           ) : logoUrl ? (
             <img 
               src={logoUrl} 
               alt="" 
-              className="w-full h-full object-contain rounded-full bg-transparent"
+              className="logo-image w-full h-full object-contain rounded-full bg-transparent"
               referrerPolicy="no-referrer"
             />
           ) : (
@@ -577,14 +583,14 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
               }}
               className="flex items-center gap-3 group transition-all text-right"
             >
-              <div className="w-14 h-14 rounded-full overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all bg-white flex items-center justify-center">
+              <div className="w-14 h-14 rounded-full overflow-hidden shadow-md group-hover:shadow-[0_0_15px_rgba(139,0,0,0.4)] transition-all bg-transparent flex items-center justify-center logo-element">
                 {logoLoading ? (
                   <div className="w-14 h-14 bg-[#800000]/10 animate-pulse" />
                 ) : logoUrl ? (
                   <img 
                     src={logoUrl} 
                     alt="" 
-                    className="w-full h-full object-contain rounded-full bg-transparent"
+                    className="logo-image w-full h-full object-contain rounded-full bg-transparent"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -4628,7 +4634,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                 <img 
                   src={logo} 
                   alt="Baraem Orthodox Logo" 
-                  className="w-full max-w-[200px] md:max-w-[300px] h-auto mb-6 md:mb-8 drop-shadow-2xl"
+                  className="logo-image w-full max-w-[200px] md:max-w-[300px] h-auto mb-6 md:mb-8 drop-shadow-2xl bg-transparent"
                   referrerPolicy="no-referrer"
                 />
                 <h1 className="text-xl md:text-5xl font-bold text-[#800000] mb-2">مرحباً بك من جديد</h1>
@@ -5061,7 +5067,7 @@ const AppContent = () => {
       {logoLoading ? (
         <div className="w-48 h-48 bg-[#800000]/10 animate-pulse rounded-3xl mb-8" />
       ) : (
-        <img src={logoUrl || logo} alt="" className="w-48 h-auto mb-8 animate-pulse" referrerPolicy="no-referrer" />
+        <img src={logoUrl || logo} alt="" className="logo-image w-48 h-auto mb-8 animate-pulse bg-transparent" referrerPolicy="no-referrer" />
       )}
       <div className="w-12 h-12 border-4 border-stone-200 border-t-[#800000] rounded-full animate-spin" />
       <p className="mt-8 text-[#800000] font-bold text-lg text-center px-4">

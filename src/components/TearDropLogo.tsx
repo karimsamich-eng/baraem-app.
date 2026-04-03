@@ -66,7 +66,7 @@ export const TearDropLogo = () => {
                   <img 
                     src={logoUrl} 
                     alt="" 
-                    className="w-full h-full object-contain rounded-full"
+                    className="logo-image logo-header w-full h-full object-contain rounded-full"
                     referrerPolicy="no-referrer"
                   />
                 ) : (

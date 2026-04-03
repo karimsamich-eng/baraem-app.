@@ -193,6 +193,26 @@
     @apply w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-maroon focus:border-maroon outline-none transition-all;
   }
 
+  /* Global Logo Transparency Fix */
+  .logo-element {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .logo-image {
+    -webkit-clip-path: circle(50% at 50% 50%);
+    clip-path: circle(50% at 50% 50%);
+    object-fit: cover;
+    background: transparent !important;
+    display: block;
+  }
+
+  .logo-header {
+    width: 45px !important;
+    height: 45px !important;
+  }
+
   /* Global Card Styles for Vanilla Latte Theme */
   div.bg-white,
   form.bg-white {

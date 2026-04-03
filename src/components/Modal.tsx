@@ -23,7 +23,7 @@ export const Modal: React.FC<ModalProps> = ({ children, onClose }) => {
         top: '50%', 
         left: '50%', 
         transform: 'translate(-50%, -50%)', 
-        zIndex: 9999,
+        zIndex: 10000,
         width: '100vw',
         height: '100vh',
         display: 'flex',

@@ -39,7 +39,7 @@ import {
   Resource, Curriculum, SliderImage, Report, StaffMember, Event 
 } from './types';
 import { exportToPdf, fileToBase64 } from './utils';
-import { AuthContext, AuthContextType, useAuth, ToastContext, useToast, ConfirmContext, useConfirm, ConfirmOptions, BrandingProvider, useBranding } from './contexts';
+import { AuthContext, AuthContextType, useAuth, ToastContext, useToast, ConfirmContext, useConfirm, ConfirmOptions, BrandingProvider, useBranding, GradeProvider, useGrade } from './contexts';
 
 // --- Helpers ---
 
@@ -411,7 +411,7 @@ const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => 
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-off-white dark:bg-dark-bg relative overflow-hidden transition-colors duration-300">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden transition-colors duration-300">
       <div className="absolute inset-0 opacity-5 dark:opacity-10 pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#800000_1px,transparent_1px)] [background-size:40px_40px]" />
       </div>
@@ -680,6 +680,7 @@ const PracticalService = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
+  const { selectedGrade, setSelectedGrade } = useGrade();
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -687,13 +688,14 @@ const PracticalService = () => {
         const snap = await getDocs(query(collection(db, 'students'), orderBy('name')));
         const list: Student[] = [];
         snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as Student));
-        setStudents(list);
+        const filtered = selectedGrade === 'all' ? list : list.filter(s => s.gradeLevel === selectedGrade);
+        setStudents(filtered);
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, 'students');
       }
     };
     fetchStudents();
-  }, []);
+  }, [selectedGrade]);
 
   useEffect(() => {
     const q = query(collection(db, 'practical_service'), where('date', '==', reportDate));
@@ -720,17 +722,18 @@ const PracticalService = () => {
     }
 
     setIsSaving(true);
-    const serviceData = {
-      studentId,
-      serviceType: formData.get('serviceType') as string,
-      description: formData.get('description') as string,
-      date: formData.get('date') as string,
-      points: Number(formData.get('points')),
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
+    
+    const savePromise = (async () => {
+      const serviceData = {
+        studentId,
+        serviceType: formData.get('serviceType') as string,
+        description: formData.get('description') as string,
+        date: formData.get('date') as string,
+        points: Number(formData.get('points')),
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
 
-    try {
       if (editingService) {
         if (editingService.studentId !== studentId) {
           const oldStudentRef = doc(db, 'students', editingService.studentId);
@@ -761,9 +764,21 @@ const PracticalService = () => {
 
       setIsAdding(false);
       setEditingService(null);
-    } catch (error) {
-      handleFirestoreError(error, editingService ? OperationType.UPDATE : OperationType.CREATE, 'practical_service');
-      addToast('فشل حفظ الخدمة', 'error');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة الاتصال (7 ثواني). يرجى التحقق من الإنترنت أو قواعد البيانات.');
+      } else {
+        handleFirestoreError(error, editingService ? OperationType.UPDATE : OperationType.CREATE, 'practical_service');
+        alert(`فشل حفظ الخدمة: ${error.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -828,6 +843,29 @@ const PracticalService = () => {
           <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">تقييم الخدمة العملية</h1>
           <p className="text-stone-500 italic">سجل التقييمات المجمعة للطلاب حسب اليوم</p>
         </div>
+
+        {/* Grade Filter UI */}
+        <div className="flex bg-white rounded-2xl border border-maroon p-1 shadow-sm">
+          <button
+            onClick={() => setSelectedGrade('all')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'all' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الكل
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الأولى')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الأولى' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الأولى
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الثانية')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الثانية' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الثانية
+          </button>
+        </div>
+
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-stone-200 w-full md:w-auto">
             <Calendar size={18} className="text-stone-400" />
@@ -2103,32 +2141,17 @@ const TayoScoring = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
+  const { selectedGrade, setSelectedGrade } = useGrade();
 
   useEffect(() => {
-    const fetchTopStudents = async () => {
-      try {
-        const gradesSnap = await getDocs(collection(db, 'grades'));
-        const studentScores: Record<string, number> = {};
-        gradesSnap.forEach(doc => {
-          const data = doc.data();
-          studentScores[data.studentId] = (studentScores[data.studentId] || 0) + data.score;
-        });
-        
-        const sorted = Object.entries(studentScores)
-          .map(([id, score]) => ({
-            name: students.find(s => s.id === id)?.name || 'طالب غير معروف',
-            totalScore: score
-          }))
-          .sort((a, b) => b.totalScore - a.totalScore)
-          .slice(0, 5);
-        
-        setTopStudents(sorted);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'grades');
-      }
-    };
-    if (students.length > 0) fetchTopStudents();
-  }, [students]);
+    const q = query(collection(db, 'students'), orderBy('name', 'asc'));
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Student));
+      const filtered = selectedGrade === 'all' ? list : list.filter(s => s.gradeLevel === selectedGrade);
+      setStudents(filtered);
+    });
+    return unsubscribe;
+  }, [selectedGrade]);
 
   const [generating, setGenerating] = useState(false);
 
@@ -2190,7 +2213,10 @@ const TayoScoring = () => {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const snap = await getDocs(collection(db, 'students'));
+        const q = selectedGrade === 'all' 
+          ? collection(db, 'students') 
+          : query(collection(db, 'students'), where('gradeLevel', '==', selectedGrade));
+        const snap = await getDocs(q);
         const list: Student[] = [];
         snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as Student));
         // Sort alphabetically by Arabic name
@@ -2201,7 +2227,7 @@ const TayoScoring = () => {
       }
     };
     fetchStudents();
-  }, []);
+  }, [selectedGrade]);
 
   useEffect(() => {
     if (!selectedStudent) return;
@@ -2232,7 +2258,8 @@ const TayoScoring = () => {
     };
 
     setIsSaving(true);
-    try {
+    
+    const savePromise = (async () => {
       const studentRef = doc(db, 'students', selectedStudent.id);
       
       if (editingGrade) {
@@ -2274,8 +2301,8 @@ const TayoScoring = () => {
         
         addToast('تم تعديل التقييم بنجاح', 'success');
       } else {
-        const docRef = doc(collection(db, 'grades'));
-        await setDoc(docRef, { ...newGrade, id: docRef.id });
+        const gradeRef = doc(collection(db, 'grades'));
+        await setDoc(gradeRef, { ...newGrade, id: gradeRef.id });
         
         // Update student points
         const fieldToUpdate = newGrade.subject === 'حضور' ? 'attendancePoints' :
@@ -2303,9 +2330,21 @@ const TayoScoring = () => {
 
       setIsAdding(false);
       setEditingGrade(null);
-    } catch (error) {
-      handleFirestoreError(error, editingGrade ? OperationType.UPDATE : OperationType.CREATE, 'grades');
-      addToast('فشل حفظ التقييم', 'error');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة الاتصال (7 ثواني). يرجى التحقق من الإنترنت أو قواعد البيانات.');
+      } else {
+        handleFirestoreError(error, editingGrade ? OperationType.UPDATE : OperationType.CREATE, 'grades');
+        alert(`فشل حفظ التقييم: ${error.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -2355,11 +2394,34 @@ const TayoScoring = () => {
 
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
-      <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8 md:mb-12">
+      <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-4 text-center md:text-right">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">تقييم طايو</h1>
-          <p className="text-stone-500 italic">إدارة الدرجات والتقدم الروحي (طايو)</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">تقييم الطايو</h1>
+          <p className="text-stone-500 italic">سجل درجات الحضور، السلوك، والتفاعل</p>
         </div>
+        
+        {/* Grade Filter UI */}
+        <div className="flex bg-white rounded-2xl border border-maroon p-1 shadow-sm">
+          <button
+            onClick={() => setSelectedGrade('all')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'all' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الكل
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الأولى')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الأولى' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الأولى
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الثانية')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الثانية' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الثانية
+          </button>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
           <div className="relative">
             <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
@@ -2628,18 +2690,21 @@ const AcceptanceEvaluation = () => {
   const [evaluation, setEvaluation] = useState<any | null>(null);
   const { user } = useAuth();
   const { addToast } = useToast();
+  const { selectedGrade, setSelectedGrade } = useGrade();
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'students'), where('gradeLevel', '==', 'الفرقة الأولى'));
+    const q = query(collection(db, 'students'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list: Student[] = [];
       snapshot.forEach(doc => list.push({ id: doc.id, ...doc.data() } as Student));
-      setStudents(list);
+      const filtered = selectedGrade === 'all' ? list : list.filter(s => s.gradeLevel === selectedGrade);
+      setStudents(filtered);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'students');
     });
     return () => unsubscribe();
-  }, []);
+  }, [selectedGrade]);
 
   useEffect(() => {
     if (!selectedStudent) return;
@@ -2658,29 +2723,75 @@ const AcceptanceEvaluation = () => {
 
   const handleSaveEvaluation = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedStudent) return;
+    if (!selectedStudent || isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
     const data = {
       studentId: selectedStudent.id,
+      studentName: selectedStudent.name,
       score: Number(formData.get('score')),
       notes: formData.get('notes') as string,
       updatedAt: new Date().toISOString(),
       updatedBy: user?.username || '',
     };
 
-    try {
+    setIsSaving(true);
+    
+    const savePromise = (async () => {
       const docRef = evaluation ? doc(db, 'acceptance_evaluations', evaluation.id) : doc(collection(db, 'acceptance_evaluations'));
       await setDoc(docRef, { ...data, id: docRef.id });
       addToast('تم حفظ التقييم بنجاح', 'success');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'acceptance_evaluations');
-      addToast('فشل حفظ التقييم', 'error');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة الاتصال (7 ثواني). يرجى التحقق من الإنترنت أو قواعد البيانات.');
+      } else {
+        handleFirestoreError(error, OperationType.WRITE, 'acceptance_evaluations');
+        alert(`فشل حفظ التقييم: ${error.message}`);
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-royal-red mb-8">تقييم القبول - الفرقة الأولى</h1>
+      <header className="flex flex-col md:flex-row items-center justify-between mb-8 md:mb-12 gap-4 text-center md:text-right">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold text-[#800000] mb-2">تقييم القبول</h1>
+          <p className="text-stone-500 italic">تقييم الطلاب الجدد للقبول في الخدمة</p>
+        </div>
+        
+        {/* Grade Filter UI */}
+        <div className="flex bg-white rounded-2xl border border-maroon p-1 shadow-sm">
+          <button
+            onClick={() => setSelectedGrade('all')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'all' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الكل
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الأولى')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الأولى' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الأولى
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الثانية')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الثانية' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الثانية
+          </button>
+        </div>
+      </header>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1">
           <div className="card-clean p-4 space-y-2">
@@ -2905,7 +3016,7 @@ function StaffPage() {
   });
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-off-white">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin" />
         <p className="text-stone-500 font-bold">جاري تحميل الهيكل التنظيمي...</p>
@@ -2917,7 +3028,7 @@ function StaffPage() {
     <div className="p-12 max-w-7xl mx-auto min-h-screen">
       <header className="mb-16 text-center relative">
         <div className="absolute top-1/2 left-0 w-full h-px bg-stone-200 -z-10" />
-        <h1 className="text-5xl font-serif font-bold text-[#800000] mb-4 bg-off-white px-8 inline-block relative">الهيكل التنظيمي</h1>
+        <h1 className="text-5xl font-serif font-bold text-[#800000] mb-4 bg-vanilla px-8 inline-block relative">الهيكل التنظيمي</h1>
         <p className="text-stone-500 italic text-lg">"خُدَّامُ اللهِ فِي كُلِّ شَيْءٍ"</p>
         
         <div className="mt-12 flex flex-col md:flex-row items-center justify-center gap-4 max-w-2xl mx-auto">
@@ -3334,43 +3445,22 @@ export const StaffManager = () => {
     if (isSaving) return;
     setIsSaving(true);
     
-    const formData = new FormData(e.currentTarget);
-    const docRef = doc(collection(db, 'staff'));
-    let imageUrl = photoBase64;
+    const savePromise = (async () => {
+      const formData = new FormData(e.currentTarget);
+      const docRef = doc(collection(db, 'staff'));
+      let imageUrl = photoBase64;
 
-    const newMember = {
-      name: formData.get('name') as string,
-      responsibility: formData.get('responsibility') as string,
-      role: formData.get('role') as any,
-      squad: formData.get('squad') as any,
-      rating: rating,
-      imageUrl: imageUrl || null,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
+      const newMember = {
+        name: formData.get('name') as string,
+        responsibility: formData.get('responsibility') as string,
+        role: formData.get('role') as any,
+        squad: formData.get('squad') as any,
+        rating: rating,
+        imageUrl: imageUrl || null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
 
-    // Plan C: Local-first fallback
-    const saveToLocalStorage = () => {
-      try {
-        const localStaff = JSON.parse(localStorage.getItem('pending_staff') || '[]');
-        localStorage.setItem('pending_staff', JSON.stringify([...localStaff, { ...newMember, id: docRef.id, isPending: true }]));
-        setStaff(prev => [...prev, { ...newMember, id: docRef.id, isPending: true } as StaffMember]);
-        addToast('تم الحفظ محلياً (فشل الاتصال بالخادم)', 'info');
-        setIsAdding(false);
-        setIsSaving(false);
-      } catch (err) {
-        console.error('Local storage fallback failed:', err);
-      }
-    };
-
-    const timeout = setTimeout(() => {
-      if (isSaving) {
-        console.warn('Firebase save timed out, falling back to local storage');
-        saveToLocalStorage();
-      }
-    }, 5000);
-
-    try {
       if (photoBase64 && photoBase64.startsWith('data:image')) {
         const response = await fetch(photoBase64);
         const blob = await response.blob();
@@ -3379,19 +3469,81 @@ export const StaffManager = () => {
         imageUrl = await getDownloadURL(storageRef);
         newMember.imageUrl = imageUrl;
       }
-
       await setDoc(docRef, { ...newMember, id: docRef.id });
-      clearTimeout(timeout);
       setIsAdding(false);
       setPhotoBase64(null);
       setRating(5);
       addToast('تم إضافة العضو بنجاح', 'success');
-    } catch (error) {
-      clearTimeout(timeout);
-      console.error('Add member failed:', error);
-      handleFirestoreError(error, OperationType.CREATE, 'staff');
-      addToast('فشل إضافة العضو - سيتم المحاولة لاحقاً', 'error');
-      saveToLocalStorage();
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة الاتصال (7 ثواني). يرجى التحقق من الإنترنت أو قواعد البيانات.');
+      } else {
+        console.error('Add member failed:', error);
+        handleFirestoreError(error, OperationType.CREATE, 'staff');
+        alert(`فشل إضافة العضو: ${error.message}`);
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditMember = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingMember || isSaving) return;
+    setIsSaving(true);
+    
+    const savePromise = (async () => {
+      const formData = new FormData(e.currentTarget);
+      let imageUrl = photoBase64 || editingMember.imageUrl;
+
+      const updatedMember = {
+        name: formData.get('name') as string,
+        responsibility: formData.get('responsibility') as string,
+        role: formData.get('role') as any,
+        squad: formData.get('squad') as any,
+        rating: rating,
+        imageUrl: imageUrl,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
+
+      if (photoBase64 && photoBase64.startsWith('data:image')) {
+        const response = await fetch(photoBase64);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `staff/${editingMember.id}`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+        updatedMember.imageUrl = imageUrl;
+      }
+      await updateDoc(doc(db, 'staff', editingMember.id), updatedMember);
+      setEditingMember(null);
+      setPhotoBase64(null);
+      setRating(5);
+      addToast('تم تحديث بيانات العضو بنجاح', 'success');
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+    );
+
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('انتهت مهلة الاتصال (7 ثواني). يرجى التحقق من الإنترنت أو قواعد البيانات.');
+      } else {
+        console.error('Edit member failed:', error);
+        handleFirestoreError(error, OperationType.UPDATE, 'staff');
+        alert(`فشل تحديث بيانات العضو: ${error.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -3469,72 +3621,7 @@ export const StaffManager = () => {
     });
   };
 
-  const handleEditMember = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!editingMember || isSaving) return;
-    setIsSaving(true);
-    
-    const formData = new FormData(e.currentTarget);
-    let imageUrl = photoBase64 || editingMember.imageUrl || null;
 
-    const updatedMember = {
-      name: formData.get('name') as string,
-      responsibility: formData.get('responsibility') as string,
-      role: formData.get('role') as any,
-      squad: formData.get('squad') as any,
-      rating: rating,
-      imageUrl: imageUrl,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
-
-    // Plan C: Local-first fallback
-    const saveToLocalStorage = () => {
-      try {
-        const localStaff = JSON.parse(localStorage.getItem('pending_staff_updates') || '[]');
-        localStorage.setItem('pending_staff_updates', JSON.stringify([...localStaff, { ...updatedMember, id: editingMember.id, isPending: true }]));
-        setStaff(prev => prev.map(m => m.id === editingMember.id ? { ...m, ...updatedMember, isPending: true } : m));
-        addToast('تم الحفظ محلياً (فشل الاتصال بالخادم)', 'info');
-        setEditingMember(null);
-        setIsSaving(false);
-      } catch (err) {
-        console.error('Local storage fallback failed:', err);
-      }
-    };
-
-    const timeout = setTimeout(() => {
-      if (isSaving) {
-        console.warn('Firebase update timed out, falling back to local storage');
-        saveToLocalStorage();
-      }
-    }, 5000);
-
-    try {
-      if (photoBase64 && photoBase64.startsWith('data:image')) {
-        const response = await fetch(photoBase64);
-        const blob = await response.blob();
-        const storageRef = ref(storage, `staff/${editingMember.id}`);
-        await uploadBytes(storageRef, blob);
-        imageUrl = await getDownloadURL(storageRef);
-        updatedMember.imageUrl = imageUrl;
-      }
-
-      await updateDoc(doc(db, 'staff', editingMember.id), updatedMember);
-      clearTimeout(timeout);
-      setEditingMember(null);
-      setPhotoBase64(null);
-      setRating(5);
-      addToast('تم تحديث بيانات العضو بنجاح', 'success');
-    } catch (error) {
-      clearTimeout(timeout);
-      console.error('Edit member failed:', error);
-      handleFirestoreError(error, OperationType.UPDATE, 'staff');
-      addToast('فشل تحديث بيانات العضو - سيتم المحاولة لاحقاً', 'error');
-      saveToLocalStorage();
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
@@ -3977,6 +4064,7 @@ const Gallery = () => {
 // --- Main Hub ---
 const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
   const { user, canAccess } = useAuth();
+  const { selectedGrade } = useGrade();
   const [stats, setStats] = useState({ students: 0, attendanceToday: 0, totalTayo: 0 });
   const [loading, setLoading] = useState(true);
   
@@ -3986,10 +4074,21 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
         const studentsSnap = await getDocs(collection(db, 'students'));
         const today = new Date().toISOString().split('T')[0];
         const attendanceSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')));
-        const gradesSnap = await getDocs(collection(db, 'grades'));
+        
+        const filteredStudents = selectedGrade === 'all' 
+          ? studentsSnap.docs 
+          : studentsSnap.docs.filter(doc => doc.data().gradeLevel === selectedGrade);
+        
+        const studentIds = filteredStudents.map(doc => doc.id);
+        const filteredAttendance = attendanceSnap.docs.filter(doc => studentIds.includes(doc.data().studentId));
+        
         let totalTayo = 0;
-        gradesSnap.forEach(doc => totalTayo += doc.data().score);
-        setStats({ students: studentsSnap.size, attendanceToday: attendanceSnap.size, totalTayo });
+        filteredStudents.forEach(doc => {
+          const data = doc.data();
+          totalTayo += (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
+        });
+
+        setStats({ students: filteredStudents.length, attendanceToday: filteredAttendance.length, totalTayo });
       } catch (error) {
         console.error("Stats fetch failed:", error);
       } finally {
@@ -3997,7 +4096,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
       }
     };
     fetchStats();
-  }, []);
+  }, [selectedGrade]);
 
   const cards = [
     { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard, color: 'maroon', desc: 'إدارة شاملة للنظام' },
@@ -4270,12 +4369,13 @@ export const EventsManager = () => {
 
 export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
   const [activeTab, setActiveTabLocal] = useState('analytics');
-  const [selectedGrade, setSelectedGrade] = useState('all');
+  const { selectedGrade, setSelectedGrade } = useGrade();
   const [stats, setStats] = useState({ 
     students: 0, 
     attendanceToday: 0, 
     tayoBreakdown: { attendance: 0, behavior: 0, interaction: 0, practical: 0 },
-    totalTayo: 0
+    totalTayo: 0,
+    totalService: 0
   });
   const [loading, setLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
@@ -4285,71 +4385,56 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
   const { confirm } = useConfirm();
 
   useEffect(() => {
-    let unsubscribeAnalytics: () => void;
+    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    
+    let studentsDocs: any[] = [];
+    let attendanceDocs: any[] = [];
 
-    const fetchBaseStats = async () => {
-      try {
-        const studentsSnap = await getDocs(collection(db, 'students'));
-        const today = new Date().toISOString().split('T')[0];
-        const attendanceSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')));
-        
-        setStats(prev => ({ 
-          ...prev, 
-          students: studentsSnap.size, 
-          attendanceToday: attendanceSnap.size 
-        }));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'dashboard_stats');
-      } finally {
-        setLoading(false);
-      }
+    const updateStats = () => {
+      const filteredStudents = selectedGrade === 'all' 
+        ? studentsDocs 
+        : studentsDocs.filter(doc => doc.data().gradeLevel === selectedGrade);
+      
+      const studentIds = filteredStudents.map(doc => doc.id);
+      const filteredAttendance = attendanceDocs.filter(doc => studentIds.includes(doc.data().studentId));
+      
+      let totalTyo = 0;
+      let totalService = 0;
+      
+      filteredStudents.forEach(doc => {
+        const data = doc.data();
+        totalTyo += (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
+        totalService += (data.practicalPoints || 0);
+      });
+      
+      setStats({ 
+        students: filteredStudents.length, 
+        attendanceToday: filteredAttendance.length, 
+        tayoBreakdown: { attendance: 0, behavior: 0, interaction: totalTyo, practical: 0 },
+        totalTayo: totalTyo,
+        totalService: totalService
+      });
+      setLoading(false);
     };
 
-    fetchBaseStats();
+    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snap) => {
+      studentsDocs = snap.docs;
+      updateStats();
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'students');
+    });
 
-    // Real-time analytics aggregation
-    if (selectedGrade === 'all') {
-      unsubscribeAnalytics = onSnapshot(collection(db, 'group_analytics'), (snap) => {
-        let totalTayo = 0;
-        let tayoBreakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
-        
-        snap.forEach(doc => {
-          const data = doc.data();
-          totalTayo += data.total_tyo_points || 0;
-          tayoBreakdown.attendance += data.attendance || 0;
-          tayoBreakdown.behavior += data.behavior || 0;
-          tayoBreakdown.interaction += data.interaction || 0;
-          tayoBreakdown.practical += data.practical || 0;
-        });
-        
-        setStats(prev => ({ ...prev, tayoBreakdown, totalTayo }));
-      });
-    } else {
-      unsubscribeAnalytics = onSnapshot(doc(db, 'group_analytics', `grade_${selectedGrade}`), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setStats(prev => ({ 
-            ...prev, 
-            totalTayo: data.total_tyo_points || 0,
-            tayoBreakdown: {
-              attendance: data.attendance || 0,
-              behavior: data.behavior || 0,
-              interaction: data.interaction || 0,
-              practical: data.practical || 0
-            }
-          }));
-        } else {
-          setStats(prev => ({ 
-            ...prev, 
-            totalTayo: 0,
-            tayoBreakdown: { attendance: 0, behavior: 0, interaction: 0, practical: 0 }
-          }));
-        }
-      });
-    }
+    const unsubscribeAttendance = onSnapshot(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')), (snap) => {
+      attendanceDocs = snap.docs;
+      updateStats();
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'attendance');
+    });
 
     return () => {
-      if (unsubscribeAnalytics) unsubscribeAnalytics();
+      unsubscribeStudents();
+      unsubscribeAttendance();
     };
   }, [selectedGrade]);
 
@@ -4522,9 +4607,10 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                 <HeroSlider />
               </div>
               
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 w-full max-w-4xl">
-                <div className="flex items-center gap-4 bg-white p-2 rounded-2xl shadow-sm border border-stone-100 w-full md:w-auto">
-                  <Filter size={20} className="text-gold ml-2" />
+              
+              <div className="sticky top-24 z-50 bg-white/80 backdrop-blur-sm p-4 rounded-2xl shadow-lg border border-stone-100 mb-8 w-full max-w-4xl mx-auto flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Filter size={20} className="text-gold" />
                   <select 
                     value={selectedGrade}
                     onChange={(e) => setSelectedGrade(e.target.value)}
@@ -4535,27 +4621,25 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                     ))}
                   </select>
                 </div>
-
                 {user?.role === 'coordinator' && (
                   <div className="flex items-center gap-2">
                     {selectedGrade !== 'all' && (
                       <button 
                         onClick={handleResetPoints}
                         disabled={isResetting}
-                        className="flex items-center gap-2 px-6 py-3 bg-royal-red/10 text-royal-red rounded-2xl font-bold hover:bg-royal-red hover:text-white transition-all shadow-sm disabled:opacity-50"
+                        className="flex items-center gap-2 px-4 py-2 bg-royal-red/10 text-royal-red rounded-xl font-bold hover:bg-royal-red hover:text-white transition-all shadow-sm disabled:opacity-50"
                       >
-                        {isResetting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 size={20} />}
-                        تصفير النقاط
+                        {isResetting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 size={16} />}
+                        تصفير
                       </button>
                     )}
                     <button 
                       onClick={handleSyncData}
                       disabled={isSyncing}
-                      className="flex items-center gap-2 px-6 py-3 bg-emerald-50 text-emerald-600 rounded-2xl font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
-                      title="مزامنة البيانات من السجلات القديمة"
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
                     >
-                      {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={20} />}
-                      مزامنة البيانات
+                      {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save size={16} />}
+                      مزامنة
                     </button>
                   </div>
                 )}
@@ -4578,12 +4662,12 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><GraduationCap size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الطايو</p>
                   <h3 className="text-4xl font-bold text-stone-900 mb-4">{stats.totalTayo}</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="bg-stone-50 p-2 rounded-lg text-center"><span className="block text-stone-500 text-xs mb-1">حضور</span><span className="font-bold text-stone-700">{stats.tayoBreakdown.attendance}</span></div>
-                    <div className="bg-stone-50 p-2 rounded-lg text-center"><span className="block text-stone-500 text-xs mb-1">سلوك</span><span className="font-bold text-stone-700">{stats.tayoBreakdown.behavior}</span></div>
-                    <div className="bg-stone-50 p-2 rounded-lg text-center"><span className="block text-stone-500 text-xs mb-1">تفاعل</span><span className="font-bold text-stone-700">{stats.tayoBreakdown.interaction}</span></div>
-                    <div className="bg-stone-50 p-2 rounded-lg text-center"><span className="block text-stone-500 text-xs mb-1">خدمة عملية</span><span className="font-bold text-stone-700">{stats.tayoBreakdown.practical}</span></div>
-                  </div>
+                </motion.div>
+
+                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-emerald-600">
+                  <div className="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Star size={24} /></div>
+                  <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الخدمة</p>
+                  <h3 className="text-4xl font-bold text-stone-900">{stats.totalService}</h3>
                 </motion.div>
               </div>
             </div>
@@ -4941,7 +5025,7 @@ const AppContent = () => {
   }, [user, activeTab, canAccess, addToast]);
 
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+    <div className="min-h-screen flex flex-col items-center justify-center">
       {logoLoading ? (
         <div className="w-48 h-48 bg-[#800000]/10 animate-pulse rounded-3xl mb-8" />
       ) : (
@@ -4963,7 +5047,7 @@ const AppContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-dark-bg w-full overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen w-full overflow-x-hidden transition-colors duration-300">
       <ViewOnlyBadge />
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
@@ -4981,7 +5065,7 @@ const AppContent = () => {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-gold transition-colors"
+              className="lg:hidden p-2 hover:bg-white/20 rounded-xl text-white transition-colors"
             >
               <Menu size={24} />
             </button>
@@ -5019,7 +5103,7 @@ const AppContent = () => {
                 </div>
                 <button 
                   onClick={() => logout()}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gold/10 hover:bg-gold/20 text-gold rounded-lg transition-all border border-gold/20"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all border border-white/20"
                 >
                   <LogOut size={18} />
                   <span className="font-bold text-sm hidden sm:inline">خروج</span>
@@ -5265,13 +5349,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <BrandingProvider>
-        <ToastProvider>
-          <ConfirmProvider>
-            <AuthContext.Provider value={authValue}>
-              <AppContent />
-            </AuthContext.Provider>
-          </ConfirmProvider>
-        </ToastProvider>
+        <GradeProvider>
+          <ToastProvider>
+            <ConfirmProvider>
+              <AuthContext.Provider value={authValue}>
+                <AppContent />
+              </AuthContext.Provider>
+            </ConfirmProvider>
+          </ToastProvider>
+        </GradeProvider>
       </BrandingProvider>
     </ErrorBoundary>
   );

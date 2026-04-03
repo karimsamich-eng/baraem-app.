@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { Student, AttendanceRecord, GradeRecord } from '../types';
 import { X, Download, Loader2 } from 'lucide-react';
@@ -357,7 +357,7 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
               e.preventDefault();
               setIsSavingTyo(true);
               const formData = new FormData(e.currentTarget);
-              try {
+              const savePromise = (async () => {
                 const tyoRef = doc(collection(db, 'tyo_evaluations'));
                 const newTyo = {
                   id: tyoRef.id,
@@ -368,10 +368,35 @@ export const StudentProfileNew = ({ student, onClose }: { student: Student, onCl
                   createdAt: new Date().toISOString()
                 };
                 await setDoc(tyoRef, newTyo);
+                
+                // Update group_analytics
+                const studentSnap = await getDoc(doc(db, 'students', student.id));
+                const grade = studentSnap.data()?.gradeLevel;
+                if (grade) {
+                  const analyticsRef = doc(db, 'group_analytics', `grade_${grade}`);
+                  await updateDoc(analyticsRef, {
+                    total_tyo_points: increment(newTyo.rating),
+                    interaction: increment(newTyo.rating), // Assuming Tyo points are interaction
+                    updatedAt: new Date().toISOString()
+                  });
+                }
+
+                // Update student points
+                const studentRef = doc(db, 'students', student.id);
+                await updateDoc(studentRef, {
+                  interactionPoints: increment(newTyo.rating) // Assuming Tyo points are interaction
+                });
+                
                 setTyoEvaluations([...tyoEvaluations, newTyo]);
+              })();
+              const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000));
+              
+              try {
+                await Promise.race([savePromise, timeoutPromise]);
                 setIsAddingTyo(false);
-              } catch (error) {
+              } catch (error: any) {
                 handleFirestoreError(error, OperationType.WRITE, 'tyo_evaluations');
+                alert(`فشل حفظ التقييم: ${error.message}`);
               } finally {
                 setIsSavingTyo(false);
               }

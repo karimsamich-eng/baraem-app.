@@ -148,7 +148,7 @@ export const SliderManager = () => {
     const formData = new FormData(form);
     const caption = formData.get('caption') as string;
 
-    try {
+    const savePromise = (async () => {
       const docRef = doc(collection(db, 'slider_images'));
       let imageUrl = preview;
       
@@ -167,12 +167,17 @@ export const SliderManager = () => {
         createdAt: new Date().toISOString(),
         createdBy: user?.username || ''
       });
+    })();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000));
+    
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
       form.reset();
       setPreview(null);
       addToast('تم إضافة الصورة بنجاح', 'success');
-    } catch (error) {
+    } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, 'slider_images');
-      addToast('فشل إضافة الصورة', 'error');
+      alert(`فشل إضافة الصورة: ${error.message}`);
     } finally {
       setUploading(false);
     }
@@ -295,7 +300,7 @@ export const SliderManager = () => {
                   <img src={img.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   
                   {/* Floating Icons for Coordinator */}
-                  {user?.role === 'coordinator' && (
+                  { (user?.role === 'coordinator' || user?.role === 'admin') && (
                     <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       <button 
                         onClick={() => setEditingImage(img)}
@@ -384,17 +389,22 @@ export const SettingsManager = () => {
   const handleExternalUrlSave = async (url: string) => {
     if (!url.trim()) return;
     setLoading(true);
-    try {
+    const savePromise = (async () => {
       await setDoc(doc(db, 'settings', 'site_settings'), {
         logoUrl: url.trim(),
         updatedAt: new Date().toISOString(),
         updatedBy: user?.username || ''
       });
       refreshLogo();
+    })();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000));
+    
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
       addToast('تم تحديث الشعار بنجاح', 'success');
-    } catch (error) {
+    } catch (error: any) {
       console.error("External URL save failed:", error);
-      addToast('فشل تحديث الشعار', 'error');
+      alert(`فشل تحديث الشعار: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -699,7 +709,7 @@ export const AnthemManager = () => {
     const formData = new FormData(form);
     const order = parseInt(formData.get('order') as string) || 0;
 
-    try {
+    const savePromise = (async () => {
       const docRef = doc(collection(db, 'anthem_slides'));
       await setDoc(docRef, {
         imageUrl: preview,
@@ -707,12 +717,17 @@ export const AnthemManager = () => {
         createdAt: new Date().toISOString(),
         createdBy: user?.username || ''
       });
+    })();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000));
+    
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
       form.reset();
       setPreview(null);
       addToast('تم إضافة الشريحة بنجاح', 'success');
-    } catch (error) {
+    } catch (error: any) {
       handleFirestoreError(error, OperationType.CREATE, 'anthem_slides');
-      addToast('فشل إضافة الشريحة', 'error');
+      alert(`فشل إضافة الشريحة: ${error.message}`);
     } finally {
       setUploading(false);
     }

@@ -94,3 +94,26 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     </BrandingContext.Provider>
   );
 };
+
+export interface GradeContextType {
+  selectedGrade: string;
+  setSelectedGrade: (grade: string) => void;
+}
+
+export const GradeContext = createContext<GradeContextType | null>(null);
+
+export const useGrade = () => {
+  const context = useContext(GradeContext);
+  if (!context) throw new Error('useGrade must be used within a GradeProvider');
+  return context;
+};
+
+export const GradeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [selectedGrade, setSelectedGrade] = useState('all');
+
+  return (
+    <GradeContext.Provider value={{ selectedGrade, setSelectedGrade }}>
+      {children}
+    </GradeContext.Provider>
+  );
+};

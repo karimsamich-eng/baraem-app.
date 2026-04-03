@@ -34,10 +34,10 @@ export const HeroSlider = () => {
     return () => clearInterval(interval);
   }, [images]);
 
-  if (loading) return <div className="h-[250px] md:h-[400px] w-full bg-stone-100 animate-pulse rounded-3xl" />;
+  if (loading) return <div className="h-[250px] md:h-[400px] w-full bg-main animate-pulse rounded-3xl" />;
   if (images.length === 0 || !images[currentIndex]) return (
-    <div className="h-[250px] md:h-[400px] w-full bg-off-white rounded-3xl flex items-center justify-center border-2 border-dashed border-stone-200">
-      <p className="text-stone-400">لا توجد صور في المعرض</p>
+    <div className="h-[250px] md:h-[400px] w-full bg-main rounded-3xl flex items-center justify-center border-2 border-dashed border-maroon/20">
+      <p className="text-maroon/40">لا توجد صور في المعرض</p>
     </div>
   );
 

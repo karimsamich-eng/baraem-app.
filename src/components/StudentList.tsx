@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { useAuth, useToast, useConfirm } from '../contexts';
+import { useAuth, useToast, useConfirm, useGrade } from '../contexts';
 import { fileToBase64 } from '../utils';
 import { Student } from '../types';
 import { UserPlus, Search, Filter, Trash2, Edit2, X, Save, Loader2 } from 'lucide-react';
@@ -20,6 +20,7 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
+  const { selectedGrade, setSelectedGrade } = useGrade();
 
   useEffect(() => {
     const q = query(collection(db, 'students'));
@@ -68,15 +69,24 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
     };
 
     setIsSaving(true);
-    try {
+    const savePromise = (async () => {
       const docRef = doc(collection(db, 'students'));
       await setDoc(docRef, { ...newStudent, id: docRef.id });
+    })();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000));
+    
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
       setIsAdding(false);
       setPhotoBase64(null);
       addToast('تم إضافة الطالب بنجاح', 'success');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'students');
-      addToast('فشل إضافة الطالب', 'error');
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('فشل الحفظ: انتهت مهلة الاتصال (5 ثواني). يرجى التحقق من الإنترنت والمحاولة مرة أخرى.');
+      } else {
+        handleFirestoreError(error, OperationType.CREATE, 'students');
+        alert(`فشل إضافة الطالب: ${error.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -97,14 +107,23 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
     };
 
     setIsSaving(true);
-    try {
+    const savePromise = (async () => {
       await updateDoc(doc(db, 'students', editingStudent.id), updatedStudent);
+    })();
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 5000));
+    
+    try {
+      await Promise.race([savePromise, timeoutPromise]);
       setEditingStudent(null);
       setPhotoBase64(null);
       addToast('تم تحديث بيانات الطالب بنجاح', 'success');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'students');
-      addToast('فشل تحديث بيانات الطالب', 'error');
+    } catch (error: any) {
+      if (error.message === 'TIMEOUT') {
+        alert('فشل التحديث: انتهت مهلة الاتصال (5 ثواني). يرجى التحقق من الإنترنت والمحاولة مرة أخرى.');
+      } else {
+        handleFirestoreError(error, OperationType.UPDATE, 'students');
+        alert(`فشل تحديث بيانات الطالب: ${error.message}`);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -129,10 +148,12 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
     });
   };
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.gradeLevel.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         s.gradeLevel.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGrade = selectedGrade === 'all' || s.gradeLevel === selectedGrade;
+    return matchesSearch && matchesGrade;
+  });
 
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
@@ -178,10 +199,33 @@ export const StudentListNew = ({ isDashboard = false }: { isDashboard?: boolean 
             placeholder="ابحث بالاسم أو المرحلة..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pr-12 pl-4 py-3 bg-white dark:bg-dark-surface rounded-2xl border border-stone-200 dark:border-dark-border focus:ring-2 focus:ring-gold outline-none transition-all shadow-sm dark:text-dark-text"
+            className="input-clean pr-12"
           />
         </div>
-        <button className="p-3 bg-white dark:bg-dark-surface rounded-2xl text-stone-500 dark:text-dark-muted hover:text-[#800000] dark:hover:text-gold transition-colors border border-stone-200 dark:border-dark-border shadow-sm flex items-center justify-center">
+        
+        {/* Grade Filter UI */}
+        <div className="flex bg-white rounded-2xl border border-maroon p-1 shadow-sm">
+          <button
+            onClick={() => setSelectedGrade('all')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'all' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الكل
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الأولى')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الأولى' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الأولى
+          </button>
+          <button
+            onClick={() => setSelectedGrade('الفرقة الثانية')}
+            className={`px-6 py-2 rounded-xl font-bold transition-all ${selectedGrade === 'الفرقة الثانية' ? 'bg-maroon text-white shadow-md' : 'text-maroon hover:bg-maroon/5'}`}
+          >
+            الفرقة الثانية
+          </button>
+        </div>
+
+        <button className="p-3 bg-white rounded-2xl text-stone-500 hover:text-[#800000] transition-colors border border-maroon shadow-sm flex items-center justify-center">
           <Filter size={20} />
         </button>
       </div>

@@ -1,44 +1,67 @@
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap');
 @import "tailwindcss";
 
+:root {
+  --bg-main: #F3E5AB; /* Vanilla Latte */
+  --primary-red: #800000; /* Maroon */
+  --text-charcoal: #333333;
+  --card-bg: #FFFFFF;
+  --border-color: #800000; /* 1px Maroon Border */
+  --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
 @theme {
   --font-sans: "Tajawal", "Cairo", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Amiri", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   
-  --color-maroon: #800000;
-  --color-royal-red: #800000;
-  --color-gold: #FFD700;
-  --color-off-white: #FFFFFF;
-  --color-vanilla: #F3E5AB;
+  --color-maroon: var(--primary-red);
+  --color-royal-red: var(--primary-red);
+  --color-charcoal: var(--text-charcoal);
+  --color-off-white: var(--card-bg);
+  --color-vanilla: var(--bg-main);
 }
 
 @layer base {
   * { box-sizing: border-box; }
   body {
-    @apply font-sans bg-vanilla text-gold transition-colors duration-300 overflow-x-hidden;
+    background-color: var(--bg-main);
+    color: var(--text-charcoal);
+    @apply font-sans transition-colors duration-300 overflow-x-hidden;
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     position: relative;
   }
 
-  /* Force specific text elements to be gold with text-shadow */
-  p, span, h1, h2, h3, label {
-    color: #FFD700 !important;
-    text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3) !important;
+  /* Maroon for titles */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-red) !important;
+    text-shadow: none !important;
+  }
+
+  /* Dark Charcoal for body text */
+  p, span, label, div {
+    color: var(--text-charcoal);
+    text-shadow: none !important;
   }
   
-  /* Override any white text to be gold */
-  .text-white {
-    color: #FFD700 !important;
+  /* Specific overrides for readability */
+  .text-stone-900, .text-stone-700, .text-stone-600, .text-stone-500, .text-stone-400 {
+    color: var(--text-charcoal) !important;
+    text-shadow: none !important;
+  }
+  
+  /* NO WHITE OR GOLD TEXT on vanilla background */
+  .text-white, .text-gold, .text-[#FFD700], .text-yellow-400, .text-yellow-500 {
+    color: var(--primary-red) !important;
   }
   
   svg {
-    stroke: #FFD700 !important;
+    stroke: var(--primary-red);
   }
   
   svg[fill]:not([fill="none"]) {
-    fill: #FFD700 !important;
+    fill: var(--primary-red);
   }
 
   body::before {
@@ -72,109 +95,112 @@
   }
 
   ::-webkit-scrollbar-track {
-    background: #F3E5AB;
+    background: var(--bg-main);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #800000;
+    background: var(--primary-red);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #FFD700;
+    background: var(--primary-red);
+    opacity: 0.8;
   }
 
   /* For Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #800000 #F3E5AB;
+    scrollbar-color: var(--primary-red) var(--bg-main);
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-[#800000] text-[#FFD700] px-6 py-3 rounded-lg font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-all shadow-md active:scale-95;
+    background-color: var(--primary-red);
+    color: #FFFFFF;
+    @apply px-6 py-3 rounded-lg font-bold hover:opacity-90 transition-all shadow-md active:scale-95;
   }
   
   .card-clean {
-    @apply bg-white border border-[rgba(128,0,0,0.1)] rounded-xl shadow-sm overflow-hidden transition-all duration-200;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    @apply rounded-xl shadow-sm overflow-hidden transition-all duration-200;
   }
   
   .interactive-card {
-    @apply border-[rgba(128,0,0,0.1)] transition-all duration-200 hover:ring-2 hover:ring-[#800000] hover:border-transparent hover:shadow-xl hover:-translate-y-1 hover:bg-[#800000]/5;
+    border: 1px solid var(--border-color);
+    @apply transition-all duration-200 hover:ring-2 hover:ring-maroon hover:border-transparent hover:shadow-xl hover:-translate-y-1 hover:bg-maroon/5;
   }
   
   .modal-overlay {
     position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     z-index: 9999 !important;
-    width: 100vw !important;
-    height: 100vh !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    background-color: rgba(28, 25, 23, 0.6) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
     backdrop-filter: blur(4px) !important;
+    padding: 1rem !important;
+  }
+
+  .modal-content {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    @apply rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 relative;
   }
   
   .border-stone-100, .border-stone-200 {
-    border-color: rgba(128, 0, 0, 0.1) !important;
+    border-color: var(--border-color) !important;
   }
   
   .bg-stone-50 {
-    background-color: #FFFDF8 !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid var(--border-color) !important;
   }
   
   .hover\:bg-stone-50:hover {
-    background-color: #FFFDF8 !important;
+    background-color: rgba(128, 0, 0, 0.05) !important;
   }
   
   .bg-stone-100 {
-    background-color: #F5EBD9 !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid var(--border-color) !important;
   }
   
   .hover\:bg-stone-100:hover {
-    background-color: #F5EBD9 !important;
+    background-color: rgba(128, 0, 0, 0.05) !important;
   }
   
   .bg-stone-200 {
-    background-color: #EADCC2 !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid var(--border-color) !important;
   }
   
   .hover\:bg-stone-200:hover {
-    background-color: #EADCC2 !important;
+    background-color: rgba(128, 0, 0, 0.05) !important;
   }
   
   .input-clean {
-    @apply w-full px-4 py-3 bg-white border border-stone-200 rounded-lg focus:ring-2 focus:ring-[#FFD700] focus:border-[#800000] outline-none transition-all;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-charcoal);
+    @apply w-full px-4 py-3 rounded-lg focus:ring-2 focus:ring-maroon focus:border-maroon outline-none transition-all;
   }
 
   /* Global Card Styles for Vanilla Latte Theme */
-  div.bg-white.rounded-3xl,
-  div.bg-white.rounded-2xl,
-  div.bg-white.rounded-\[2rem\],
-  div.bg-white.rounded-\[2\.5rem\],
-  form.bg-white.rounded-3xl,
-  form.bg-white.rounded-2xl,
-  form.bg-white.rounded-\[2rem\],
-  form.bg-white.rounded-\[2\.5rem\] {
-    border-color: rgba(128, 0, 0, 0.1) !important;
-    transition: all 0.2s ease;
+  div.bg-white,
+  form.bg-white {
+    border: 1px solid var(--border-color) !important;
+    background-color: #FFFFFF !important;
   }
   
-  div.bg-white.rounded-3xl:hover,
-  div.bg-white.rounded-2xl:hover,
-  div.bg-white.rounded-\[2rem\]:hover,
-  div.bg-white.rounded-\[2\.5rem\]:hover,
-  form.bg-white.rounded-3xl:hover,
-  form.bg-white.rounded-2xl:hover,
-  form.bg-white.rounded-\[2rem\]:hover,
-  form.bg-white.rounded-\[2\.5rem\]:hover {
-    box-shadow: 0 0 0 2px #800000, 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-    border-color: transparent !important;
-    transform: translateY(-4px);
-    background-color: rgba(128, 0, 0, 0.05) !important;
+  /* Ensure all cards have maroon border */
+  .rounded-3xl, .rounded-2xl, .rounded-\[2rem\], .rounded-\[2\.5rem\] {
+    border: 1px solid var(--border-color) !important;
   }
 }

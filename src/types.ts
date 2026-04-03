@@ -21,6 +21,7 @@ export interface Student {
   behaviorPoints: number;
   interactionPoints: number;
   practicalPoints: number;
+  total_service_points: number;
 }
 
 export interface AttendanceRecord {

@@ -7,7 +7,7 @@ import React, { useState, useEffect, createContext, useContext, ReactNode, useRe
 import { 
   db, auth, storage,
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, increment,
-  ref, uploadBytes, getDownloadURL, deleteObject,
+  ref, uploadBytes, getDownloadURL, deleteObject, uploadString,
   handleFirestoreError, OperationType
 } from './firebase.ts';
 import { signInAnonymously } from 'firebase/auth';
@@ -17,7 +17,7 @@ import { TearDropLogo } from './components/TearDropLogo';
 import { MonthlyExamCenter } from './components/MonthlyExamCenter';
 import { StudentProfileNew } from './components/StudentProfile';
 import { StudentListNew } from './components/StudentList';
-import { CurriculumManager, SliderManager, SettingsManager, AnthemManager, LogoEditorModal } from './components/Managers';
+import { SliderManager, SettingsManager, AnthemManager, LogoEditorModal } from './components/Managers';
 import { 
   Users, Calendar, GraduationCap, LayoutDashboard, LogOut, Plus, Search, Trophy,
   CheckCircle2, XCircle, Clock, MoreVertical, Edit2, Trash2, ChevronRight, 
@@ -39,7 +39,7 @@ import {
   Resource, Curriculum, SliderImage, Report, StaffMember, Event 
 } from './types';
 import { exportToPdf, fileToBase64 } from './utils';
-import { AuthContext, AuthContextType, useAuth, ToastContext, useToast, ConfirmContext, useConfirm, ConfirmOptions, BrandingProvider, useBranding, GradeProvider, useGrade } from './contexts';
+import { AuthContext, AuthContextType, useAuth, ToastContext, useToast, ConfirmContext, useConfirm, ConfirmOptions, BrandingProvider, useBranding, GradeProvider, useGrade, GlobalErrorProvider, useGlobalError, useErrorHandler, ThemeProvider, useTheme } from './contexts';
 
 // --- Helpers ---
 
@@ -141,7 +141,7 @@ const createPDFDocument = async (reportData: any, createdBy: string) => {
             <img src="${logo}" class="logo-print" style="width: 100px; height: 100px; object-fit: contain;" />
             <div style="text-align: right;">
               <h1 style="margin: 0; font-size: 32px; font-weight: bold;">خدمة البراعم الأرثوذكسية</h1>
-              <h2 style="margin: 10px 0 0 0; font-size: 22px; opacity: 0.9;">${reportData.title || 'تقرير'}</h2>
+              <h2 style="margin: 10px 0 0 0; font-size: 22px; opacity: 0.9;">${reportData.title || 'تقرير'} - عام 2026</h2>
             </div>
           </div>
         </div>
@@ -393,6 +393,50 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
 // --- Components ---
 
+const GlobalErrorDisplay = () => {
+  const { currentError, clearError } = useGlobalError();
+
+  if (!currentError) return null;
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-red-100"
+      >
+        <div className="p-8 pb-0 flex items-center gap-4 text-red-600">
+          <div className="p-3 bg-red-50 rounded-2xl">
+            <AlertTriangle size={32} />
+          </div>
+          <h2 className="text-2xl font-serif font-bold">{currentError.title}</h2>
+        </div>
+        
+        <div className="p-8">
+          <p className="text-stone-600 leading-relaxed font-sans mb-8">
+            {currentError.message}
+          </p>
+          
+          {currentError.code && (
+            <div className="mb-8 p-4 bg-stone-50 rounded-2xl border border-stone-100 flex items-center gap-2">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Error Code:</span>
+              <code className="text-stone-900 font-mono text-sm">{currentError.code}</code>
+            </div>
+          )}
+          
+          <button 
+            onClick={clearError}
+            className="w-full bg-[#800000] text-white py-4 rounded-2xl font-bold hover:bg-[#600000] transition-all active:scale-95 shadow-lg shadow-[#800000]/20"
+          >
+            إغلاق
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 const AuthScreen = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
   const { logoUrl, logoLoading } = useBranding();
   const { login } = useAuth();
@@ -550,7 +594,9 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, setIsOpen }: { activeTab: st
     { id: 'attendance', label: 'تسجيل الحضور', icon: Calendar },
     { id: 'tayo', label: 'تقييم طايو', icon: GraduationCap },
     { id: 'practical', label: 'الخدمة العملية', icon: Heart },
+    { id: 'library', label: 'مكتبة المناهج والموارد', icon: BookOpen },
     { id: 'acceptance', label: 'تقييم القبول', icon: CheckCircle2 },
+    { id: 'resource-mgmt', label: 'إدارة المناهج والموارد', icon: BookOpen },
     { id: 'anthem-mgmt', label: 'إدارة الشعار', icon: Music },
     { id: 'settings-mgmt', label: 'إعدادات الهوية', icon: UserCog },
   ].filter(item => canAccess(item.id));
@@ -1060,7 +1106,6 @@ const PracticalService = () => {
 // --- Resource Library ---
 const LibraryPage = () => {
   const [resources, setResources] = useState<Resource[]>([]);
-  const [curricula, setCurricula] = useState<Curriculum[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [loading, setLoading] = useState(true);
@@ -1076,15 +1121,8 @@ const LibraryPage = () => {
       handleFirestoreError(error, OperationType.GET, 'resources');
     });
 
-    const unsubscribeCurricula = onSnapshot(collection(db, 'curriculum'), (snapshot) => {
-      setCurricula(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Curriculum)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'curriculum');
-    });
-
     return () => {
       unsubscribeResources();
-      unsubscribeCurricula();
     };
   }, []);
 
@@ -1132,34 +1170,6 @@ const LibraryPage = () => {
         </div>
       </header>
 
-      {curricula.length > 0 && (
-        <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-8">
-          {curricula.map(curr => (
-            <motion.div 
-              key={curr.id} 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-royal-red to-red-900 rounded-3xl p-8 text-white shadow-xl flex items-center justify-between group overflow-hidden relative"
-            >
-              <div className="relative z-10">
-                <h3 className="text-2xl font-bold mb-2">منهج {curr.id}</h3>
-                <p className="text-red-100/80 text-sm mb-6">المادة العلمية الرسمية المعتمدة</p>
-                <a 
-                  href={curr.pdfUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-white text-royal-red px-6 py-3 rounded-xl font-bold hover:bg-gold hover:text-white transition-all shadow-lg"
-                >
-                  <FileText size={20} />
-                  تحميل المنهج (PDF)
-                </a>
-              </div>
-              <BookOpen size={120} className="absolute -left-8 -bottom-8 text-white/10 group-hover:scale-110 transition-transform duration-500" />
-            </motion.div>
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-12 h-12 border-4 border-royal-red border-t-transparent rounded-full animate-spin"></div>
@@ -1171,33 +1181,64 @@ const LibraryPage = () => {
               key={resource.id}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="interactive-card card-clean group overflow-hidden border-t-4 border-t-gold hover:shadow-xl transition-all"
+              className="interactive-card card-clean group overflow-hidden border-t-4 border-t-royal-red hover:shadow-2xl transition-all relative"
             >
-              <div className="p-8">
+              {/* Branding Watermark */}
+              <div className="absolute -left-4 -top-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500 pointer-events-none">
+                 <img src={logo} alt="" className="w-40 h-40 object-contain" />
+              </div>
+
+              <div className="p-8 relative z-10">
                 <div className="flex justify-between items-start mb-6">
-                  <span className="px-3 py-1 bg-[#800000]/10 text-[#800000] rounded-lg text-xs font-bold border border-[#800000]/20">
-                    {resource.category === 'Menahej' ? 'منهج' : resource.category === 'Alhan' ? 'لحن' : 'روحي'}
-                  </span>
-                  <span className="text-stone-400 text-xs font-bold px-2 py-1 bg-stone-50 rounded-md">
-                    {resource.squad}
-                  </span>
+                  <div className={`p-4 rounded-2xl ${
+                    resource.fileType === 'pptx' ? 'bg-orange-50 text-orange-600' :
+                    resource.fileType === 'pdf' ? 'bg-red-50 text-red-600' :
+                    'bg-blue-50 text-blue-600'
+                  }`}>
+                    {resource.fileType === 'pptx' ? <Music size={24} /> : 
+                     resource.fileType === 'pdf' ? <FileText size={24} /> : 
+                     <Plus size={24} />}
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="px-3 py-1 bg-royal-red/10 text-royal-red rounded-lg text-[10px] font-black uppercase tracking-widest border border-royal-red/20">
+                      {resource.category === 'Menahej' ? 'منهج' : resource.category === 'Alhan' ? 'لحن' : 'روحي'}
+                    </span>
+                    <span className="text-stone-400 text-[10px] font-bold px-2 py-0.5 bg-stone-50 rounded border border-stone-100 italic">
+                      {resource.squad}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-bold text-stone-900 mb-4 group-hover:text-[#800000] transition-colors">
+
+                <h3 className="text-xl font-bold text-stone-900 mb-2 group-hover:text-royal-red transition-colors line-clamp-2 min-h-[3.5rem] leading-snug">
                   {resource.title}
                 </h3>
-                <div className="flex items-center justify-between pt-6 border-t border-stone-50">
+                
+                <p className="text-[10px] text-stone-400 font-medium mb-6 flex items-center gap-2">
+                   <Clock size={12} />
+                   أضيف في {new Date(resource.updatedAt).toLocaleDateString('ar-EG')}
+                </p>
+
+                <div className="flex flex-col gap-3 pt-6 border-t border-stone-50">
+                  {(resource.fileType === 'pptx' || resource.fileType === 'pdf') && (
+                    <a 
+                      href={`https://docs.google.com/viewer?url=${encodeURIComponent(resource.link)}&embedded=true`}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-stone-900 text-white hover:bg-[#800000] transition-colors shadow-lg"
+                    >
+                      <Eye size={18} />
+                      عرض مستند أونلاين
+                    </a>
+                  )}
                   <a 
                     href={resource.link} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="btn-primary flex items-center gap-2 py-2 px-6 text-sm"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold bg-off-white text-stone-700 hover:bg-stone-200 transition-colors"
                   >
                     <Download size={18} />
-                    عرض / تحميل
+                    تحميل الملف مباشر
                   </a>
-                  <span className="text-[10px] text-stone-400 font-mono">
-                    {new Date(resource.updatedAt).toLocaleDateString('ar-EG')}
-                  </span>
                 </div>
               </div>
             </motion.div>
@@ -1217,6 +1258,8 @@ const LibraryPage = () => {
 // --- Resource Manager (Admin) ---
 const ResourceManager = () => {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [anthemPptx, setAnthemPptx] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
@@ -1233,31 +1276,70 @@ const ResourceManager = () => {
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'resources');
     });
-    return () => unsubscribe();
+
+    const unsubscribeSettings = onSnapshot(doc(db, 'settings', 'site_settings'), (docSnap) => {
+      if (docSnap.exists()) {
+        setAnthemPptx(docSnap.data().anthemPptxUrl || '');
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeSettings();
+    };
   }, []);
 
   const handleAddResource = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSaving) return;
+    
     const formData = new FormData(e.currentTarget);
-    const newResource = {
-      title: formData.get('title') as string,
-      category: formData.get('category') as any,
-      squad: formData.get('squad') as any,
-      link: formData.get('link') as string,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
-
+    const title = formData.get('title') as string;
+    const category = formData.get('category') as any;
+    const squad = formData.get('squad') as any;
+    let link = formData.get('link') as string;
+    
+    setIsSaving(true);
     const form = e.currentTarget;
+
     try {
+      let fileType: 'pptx' | 'pdf' | 'link' = 'link';
+      
+      // Handle file upload if present
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop()?.toLowerCase();
+        fileType = fileExt === 'pptx' ? 'pptx' : fileExt === 'pdf' ? 'pdf' : 'link';
+        
+        const storageRef = ref(storage, `resources/${Date.now()}_${selectedFile.name}`);
+        const uploadResult = await uploadBytes(storageRef, selectedFile);
+        link = await getDownloadURL(uploadResult.ref);
+      } else if (link.toLowerCase().endsWith('.pptx')) {
+        fileType = 'pptx';
+      } else if (link.toLowerCase().endsWith('.pdf')) {
+        fileType = 'pdf';
+      }
+
+      const newResource: Omit<Resource, 'id'> = {
+        title,
+        category,
+        squad,
+        link,
+        fileType,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
+
       const docRef = doc(collection(db, 'resources'));
       await setDoc(docRef, { ...newResource, id: docRef.id });
       setIsAdding(false);
+      setSelectedFile(null);
       form.reset();
       addToast('تم إضافة المورد بنجاح', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'resources');
       addToast('فشل إضافة المورد', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1285,19 +1367,40 @@ const ResourceManager = () => {
     if (!editingResource || isSaving) return;
     
     const formData = new FormData(e.currentTarget);
-    const updatedResource = {
-      title: formData.get('title') as string,
-      category: formData.get('category') as any,
-      squad: formData.get('squad') as any,
-      link: formData.get('link') as string,
-      updatedAt: new Date().toISOString(),
-      updatedBy: user?.username || '',
-    };
-
+    const title = formData.get('title') as string;
+    const category = formData.get('category') as any;
+    const squad = formData.get('squad') as any;
+    let link = formData.get('link') as string;
+    
     setIsSaving(true);
     try {
+      let fileType = editingResource.fileType || 'link';
+
+      // Handle file upload if present
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop()?.toLowerCase();
+        fileType = fileExt === 'pptx' ? 'pptx' : fileExt === 'pdf' ? 'pdf' : 'link';
+        
+        const storageRef = ref(storage, `resources/${Date.now()}_${selectedFile.name}`);
+        const uploadResult = await uploadBytes(storageRef, selectedFile);
+        link = await getDownloadURL(uploadResult.ref);
+      } else if (!link && editingResource.link) {
+        link = editingResource.link;
+      }
+
+      const updatedResource = {
+        title,
+        category,
+        squad,
+        link,
+        fileType,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user?.username || '',
+      };
+
       await updateDoc(doc(db, 'resources', editingResource.id), updatedResource);
       setEditingResource(null);
+      setSelectedFile(null);
       addToast('تم تحديث المورد بنجاح', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'resources');
@@ -1309,16 +1412,133 @@ const ResourceManager = () => {
 
   return (
     <div className="p-12 max-w-7xl mx-auto">
-      <header className="mb-12 flex items-center justify-between">
+      <header className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-bold text-[#800000] mb-2">إدارة الموارد</h1>
           <p className="text-stone-500 italic">إضافة وتعديل المناهج والألحان</p>
         </div>
-        <button onClick={() => setIsAdding(true)} className="btn-primary flex items-center gap-2">
-          <Plus size={20} />
-          إضافة مورد جديد
-        </button>
+        <div className="flex gap-4">
+          <button onClick={() => setIsAdding(true)} className="btn-primary flex items-center gap-2">
+            <Plus size={20} />
+            إضافة مورد جديد
+          </button>
+        </div>
       </header>
+
+      {/* Global Resources Section (Anthem PPTX) */}
+      <div className="mb-12 bg-white rounded-3xl p-8 shadow-xl border border-stone-100">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+            <Music size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-stone-900">ملف شعار البراعم (PPTX)</h2>
+            <p className="text-xs text-stone-500">هذا الملف سيظهر كخيار تحميل في قسم النشيد</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2 mr-1">رابط مباشر للملف</label>
+              <div className="flex gap-2">
+                <input 
+                  id="anthem-pptx-url"
+                  type="url" 
+                  placeholder="https://example.com/anthem.pptx"
+                  className="flex-1 input-clean"
+                  value={anthemPptx}
+                  onChange={(e) => setAnthemPptx(e.target.value)}
+                />
+                <button 
+                  onClick={async (e) => {
+                    const input = document.getElementById('anthem-pptx-url') as HTMLInputElement;
+                    const url = input.value.trim();
+                    if (!url) return;
+                    setIsSaving(true);
+                    try {
+                      await setDoc(doc(db, 'settings', 'site_settings'), {
+                        anthemPptxUrl: url,
+                        updatedAt: new Date().toISOString(),
+                        updatedBy: user?.username || 'admin'
+                      }, { merge: true });
+                      addToast('تم تحديث رابط الملف بنجاح', 'success');
+                    } catch (error) {
+                      addToast('فشل تحديث الرابط', 'error');
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-[#800000] text-white rounded-xl font-bold hover:bg-[#FFD700] hover:text-[#800000] transition-all disabled:opacity-50"
+                >
+                  {isSaving ? "جاري الحفظ..." : "حفظ الرابط"}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2 mr-1">رفع ملف جديد (Direct Upload)</label>
+              <div className="flex gap-2">
+                <label className="flex-1 flex items-center justify-between px-4 py-2 bg-stone-50 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-100 transition-colors">
+                  <span className="text-sm text-stone-500 truncate" id="file-name-display">اختر ملف PPTX...</span>
+                  <Upload size={18} className="text-stone-400" />
+                  <input 
+                    type="file" 
+                    accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" 
+                    className="hidden" 
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const display = document.getElementById('file-name-display');
+                        if (display) display.textContent = file.name;
+                      }
+                    }}
+                    id="anthem-pptx-file"
+                  />
+                </label>
+                <button 
+                  onClick={async () => {
+                    const fileInput = document.getElementById('anthem-pptx-file') as HTMLInputElement;
+                    const file = fileInput.files?.[0];
+                    if (!file) {
+                      addToast('يرجى اختيار ملف أولاً', 'info');
+                      return;
+                    }
+                    setIsSaving(true);
+                    try {
+                      const storageRef = ref(storage, `resources/anthem_baraem.pptx`);
+                      await uploadBytes(storageRef, file);
+                      const downloadUrl = await getDownloadURL(storageRef);
+                      
+                      await setDoc(doc(db, 'settings', 'site_settings'), {
+                        anthemPptxUrl: downloadUrl,
+                        updatedAt: new Date().toISOString(),
+                        updatedBy: user?.username || 'admin'
+                      }, { merge: true });
+                      
+                      const urlInput = document.getElementById('anthem-pptx-url') as HTMLInputElement;
+                      if (urlInput) urlInput.value = downloadUrl;
+                      
+                      addToast('تم رفع وتحديث الملف بنجاح', 'success');
+                    } catch (error) {
+                      console.error("Upload failed:", error);
+                      addToast('فشل في رفع الملف', 'error');
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-stone-800 text-white rounded-xl font-bold hover:bg-black transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Upload size={18} />
+                  <span>رفع وحفظ</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="card-clean overflow-x-auto">
         <table className="w-full text-right border-collapse min-w-[600px]">
@@ -1393,24 +1613,50 @@ const ResourceManager = () => {
                   <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">عنوان المورد</label>
                   <input name="title" required className="input-clean" placeholder="مثلاً: لحن آجيوس" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التصنيف</label>
-                  <select name="category" required className="input-clean">
-                    <option value="Menahej">منهج</option>
-                    <option value="Alhan">ألحان</option>
-                    <option value="Spiritual">روحيات</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التصنيف</label>
+                    <select name="category" required className="input-clean">
+                      <option value="Menahej">منهج</option>
+                      <option value="Alhan">ألحان</option>
+                      <option value="Spiritual">روحيات</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الفرقة</label>
+                    <select name="squad" required className="input-clean">
+                      <option value="الفرقة الأولى">الفرقة الأولى</option>
+                      <option value="الفرقة الثانية">الفرقة الثانية</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الفرقة</label>
-                  <select name="squad" required className="input-clean">
-                    <option value="الفرقة الأولى">الفرقة الأولى</option>
-                    <option value="الفرقة الثانية">الفرقة الثانية</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">رابط المورد (Link/Base64)</label>
-                  <input name="link" required className="input-clean" placeholder="https://..." />
+
+                <div className="space-y-4 pt-4 border-t border-stone-50">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1 text-royal-red flex items-center gap-2">
+                       رفع ملف (PPTX / PDF)
+                       <span className="text-[10px] lowercase text-stone-400 font-normal">اختياري</span>
+                    </label>
+                    <label className="flex items-center justify-between px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-100 transition-colors">
+                      <span className="text-sm text-stone-500 truncate">
+                        {selectedFile ? selectedFile.name : 'اضغط لاختيار ملف...'}
+                      </span>
+                      <Upload size={18} className="text-stone-400" />
+                      <input 
+                        type="file" 
+                        accept=".pptx,.pdf" 
+                        className="hidden" 
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  </div>
+
+                  {!selectedFile && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">أو رابط مباشر</label>
+                      <input name="link" className="input-clean" placeholder="https://..." />
+                    </div>
+                  )}
                 </div>
                 
                 <button 
@@ -1452,26 +1698,52 @@ const ResourceManager = () => {
               <form onSubmit={handleEditResource} className="p-8 space-y-6">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">عنوان المورد</label>
-                  <input name="title" defaultValue={editingResource.title} required className="input-clean" />
+                  <input name="title" defaultValue={editingResource.title} required className="input-clean font-bold" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التصنيف</label>
-                  <select name="category" defaultValue={editingResource.category} required className="input-clean">
-                    <option value="Menahej">منهج</option>
-                    <option value="Alhan">ألحان</option>
-                    <option value="Spiritual">روحيات</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">التصنيف</label>
+                    <select name="category" defaultValue={editingResource.category} required className="input-clean">
+                      <option value="Menahej">منهج</option>
+                      <option value="Alhan">ألحان</option>
+                      <option value="Spiritual">روحيات</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الفرقة</label>
+                    <select name="squad" defaultValue={editingResource.squad} required className="input-clean">
+                      <option value="الفرقة الأولى">الفرقة الأولى</option>
+                      <option value="الفرقة الثانية">الفرقة الثانية</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">الفرقة</label>
-                  <select name="squad" defaultValue={editingResource.squad} required className="input-clean">
-                    <option value="الفرقة الأولى">الفرقة الأولى</option>
-                    <option value="الفرقة الثانية">الفرقة الثانية</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">رابط المورد</label>
-                  <input name="link" defaultValue={editingResource.link} required className="input-clean" />
+
+                <div className="space-y-4 pt-4 border-t border-stone-50">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1 text-royal-red flex items-center gap-2">
+                       تغيير الملف (PPTX / PDF)
+                       <span className="text-[10px] lowercase text-stone-400 font-normal">اختياري</span>
+                    </label>
+                    <label className="flex items-center justify-between px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl cursor-pointer hover:bg-stone-100 transition-colors">
+                      <span className="text-sm text-stone-500 truncate">
+                        {selectedFile ? selectedFile.name : 'اضغط لاستبدال الملف الحالي...'}
+                      </span>
+                      <Upload size={18} className="text-stone-400" />
+                      <input 
+                        type="file" 
+                        accept=".pptx,.pdf" 
+                        className="hidden" 
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  </div>
+
+                  {!selectedFile && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-stone-700 uppercase tracking-wider mr-1">رابط المورد الحالي</label>
+                      <input name="link" defaultValue={editingResource.link} className="input-clean text-stone-400 text-[10px]" />
+                    </div>
+                  )}
                 </div>
                 
                 <button 
@@ -1714,7 +1986,7 @@ const StudentList = () => {
               <p className="text-stone-400 dark:text-dark-muted text-sm mb-4">{student.parentName || 'لا يوجد اسم ولي أمر'}</p>
               
               <div className="flex items-center justify-center gap-2">
-                {user?.role === 'coordinator' && (
+                {(user?.role === 'coordinator' || user?.role === 'admin') && (
                   <button 
                     onClick={() => setSelectedStudentProfile(student)}
                     className="flex-1 py-2 bg-gold/10 text-gold rounded-xl font-bold text-sm hover:bg-gold hover:text-white transition-all flex items-center justify-center gap-2"
@@ -2972,10 +3244,11 @@ function StaffPage() {
 
   const handleUpdateStaffImage = async (id: string, newBase64: string) => {
     const savePromise = (async () => {
-      const response = await fetch(newBase64);
-      const blob = await response.blob();
+      console.log('Direct image update started (StaffPage):', id);
       const storageRef = ref(storage, `staff/${id}`);
-      await uploadBytes(storageRef, blob);
+      await uploadString(storageRef, newBase64, 'data_url', {
+        contentType: 'image/jpeg'
+      });
       const imageUrl = await getDownloadURL(storageRef);
       
       await updateDoc(doc(db, 'staff', id), { imageUrl });
@@ -3066,8 +3339,9 @@ function StaffPage() {
             onChange={(e) => setSquadFilter(e.target.value)}
           >
             <option value="الكل">كل الفرق</option>
-            <option value="الفرقة الأولى">الفرقة الأولى</option>
-            <option value="الفرقة الثانية">الفرقة الثانية</option>
+            <option value="الأولى">الفرقة الأولى</option>
+            <option value="الثانية">الفرقة الثانية</option>
+            <option value="عام">عام / الكل</option>
           </select>
         </div>
       </header>
@@ -3098,8 +3372,8 @@ function StaffPage() {
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Eye size={24} className="text-white" onClick={(e) => { e.stopPropagation(); setViewPhoto(member.imageUrl!); }} />
                     </div>
-                    {/* Coordinator Controls */}
-                    {canAccess('coordinator') && (
+                    {/* Coordinator/Admin Controls */}
+                    {(canAccess('coordinator') || user?.role === 'admin') && (
                       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setEditingImage(member); }}
@@ -3121,8 +3395,8 @@ function StaffPage() {
                 ) : (
                   <div className="w-full h-full bg-stone-100 flex items-center justify-center text-4xl font-bold text-stone-300 relative">
                     {member.name[0]}
-                    {/* Coordinator Controls for empty state */}
-                    {canAccess('coordinator') && (
+                    {/* Coordinator/Admin Controls for empty state */}
+                    {(canAccess('coordinator') || user?.role === 'admin') && (
                       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                         <button 
                           onClick={(e) => { e.stopPropagation(); setEditingImage(member); }}
@@ -3159,7 +3433,7 @@ function StaffPage() {
             
             <div className="mt-auto w-full pt-4 border-t border-stone-50 flex justify-center">
               <span className="px-4 py-1.5 bg-stone-50 rounded-full text-[11px] text-stone-500 font-bold uppercase tracking-widest">
-                الفرقة: {member.squad}
+                الفرقة: {member.squad === 'الأولى' ? 'الفرقة الأولى' : member.squad === 'الثانية' ? 'الفرقة الثانية' : 'عام / الكل'}
               </span>
             </div>
           </motion.div>
@@ -3464,9 +3738,10 @@ export const StaffManager = () => {
     setIsSaving(true);
     
     const savePromise = (async () => {
-      const formData = new FormData(e.currentTarget);
+      const form = e.currentTarget;
+      const formData = new FormData(form);
       const docRef = doc(collection(db, 'staff'));
-      let imageUrl = photoBase64;
+      let finalImageUrl = photoBase64;
 
       const newMember = {
         name: formData.get('name') as string,
@@ -3474,19 +3749,33 @@ export const StaffManager = () => {
         role: formData.get('role') as any,
         squad: formData.get('squad') as any,
         rating: rating,
-        imageUrl: imageUrl || null,
+        imageUrl: finalImageUrl || null,
         updatedAt: new Date().toISOString(),
-        updatedBy: user?.username || '',
+        updatedBy: user?.displayName || user?.username || 'admin',
       };
 
       if (photoBase64 && photoBase64.startsWith('data:image')) {
-        const response = await fetch(photoBase64);
-        const blob = await response.blob();
-        const storageRef = ref(storage, `staff/${docRef.id}`);
-        await uploadBytes(storageRef, blob);
-        imageUrl = await getDownloadURL(storageRef);
-        newMember.imageUrl = imageUrl;
+        try {
+          console.log('Attempting image upload to Storage...');
+          const storageRef = ref(storage, `staff/${docRef.id}`);
+          await uploadString(storageRef, photoBase64, 'data_url', {
+            contentType: 'image/jpeg'
+          });
+          finalImageUrl = await getDownloadURL(storageRef);
+          newMember.imageUrl = finalImageUrl;
+          console.log('Storage upload successful:', finalImageUrl);
+        } catch (uploadError) {
+          console.error('Storage upload failed, falling back to Base64 (Firestore):', uploadError);
+          if (photoBase64.length < 900000) { // Firestore 1MB limit check
+            newMember.imageUrl = photoBase64;
+            addToast('تم حفظ الصورة داخلياً (Base64)', 'info');
+          } else {
+             addToast('حجم الصورة كبير جداً، سيتم الحفظ بدون صورة', 'info');
+             newMember.imageUrl = null;
+          }
+        }
       }
+      
       await setDoc(docRef, { ...newMember, id: docRef.id });
       setIsAdding(false);
       setPhotoBase64(null);
@@ -3495,7 +3784,7 @@ export const StaffManager = () => {
     })();
 
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
     );
 
     try {
@@ -3519,8 +3808,9 @@ export const StaffManager = () => {
     setIsSaving(true);
     
     const savePromise = (async () => {
-      const formData = new FormData(e.currentTarget);
-      let imageUrl = photoBase64 || editingMember.imageUrl;
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+      let finalImageUrl = photoBase64 || editingMember.imageUrl;
 
       const updatedMember: any = {
         name: formData.get('name') as string,
@@ -3528,23 +3818,29 @@ export const StaffManager = () => {
         role: formData.get('role') as any,
         squad: formData.get('squad') as any,
         rating: rating,
-        imageUrl: imageUrl,
+        imageUrl: finalImageUrl,
         updatedAt: new Date().toISOString(),
-        updatedBy: user?.username || '',
+        updatedBy: user?.displayName || user?.username || 'admin',
       };
 
       if (photoBase64 && photoBase64.startsWith('data:image')) {
         try {
-          const response = await fetch(photoBase64);
-          const blob = await response.blob();
+          console.log('Attempting image update to Storage...');
           const storageRef = ref(storage, `staff/${editingMember.id}`);
-          await uploadBytes(storageRef, blob);
-          imageUrl = await getDownloadURL(storageRef);
-          updatedMember.imageUrl = imageUrl;
+          await uploadString(storageRef, photoBase64, 'data_url', {
+            contentType: 'image/jpeg'
+          });
+          finalImageUrl = await getDownloadURL(storageRef);
+          updatedMember.imageUrl = finalImageUrl;
+          console.log('Storage update successful:', finalImageUrl);
         } catch (uploadError) {
-          console.error('Image upload failed, falling back to existing image:', uploadError);
-          // If upload fails, we keep the old image if possible, or the base64 if we must (but base64 might fail Firestore limit)
-          updatedMember.imageUrl = editingMember.imageUrl;
+          console.error('Storage update failed, falling back to Base64:', uploadError);
+          if (photoBase64.length < 900000) {
+            updatedMember.imageUrl = photoBase64;
+          } else {
+            addToast('فشل الرفع للـ Storage وحجم الصورة كبير جداً', 'error');
+            updatedMember.imageUrl = editingMember.imageUrl;
+          }
         }
       }
       
@@ -3556,7 +3852,7 @@ export const StaffManager = () => {
     })();
 
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('TIMEOUT')), 7000)
+      setTimeout(() => reject(new Error('TIMEOUT')), 15000)
     );
 
     try {
@@ -3603,11 +3899,22 @@ export const StaffManager = () => {
     setIsSaving(true);
     
     const savePromise = (async () => {
-      const response = await fetch(newBase64);
-      const blob = await response.blob();
+      console.log('Direct image update started (StaffManager):', id);
       const storageRef = ref(storage, `staff/${id}`);
-      await uploadBytes(storageRef, blob);
-      const imageUrl = await getDownloadURL(storageRef);
+      let imageUrl = newBase64;
+      try {
+        await uploadString(storageRef, newBase64, 'data_url', {
+          contentType: 'image/jpeg'
+        });
+        imageUrl = await getDownloadURL(storageRef);
+        console.log('Direct Storage upload successful');
+      } catch (uploadError) {
+        console.warn('Direct Storage upload failed, using Base64 fallback');
+        if (newBase64.length > 1000000) {
+           throw new Error('Image too large for fallback');
+        }
+        // imageUrl remains newBase64
+      }
       
       await updateDoc(doc(db, 'staff', id), { imageUrl });
       addToast('تم تحديث الصورة بنجاح', 'success');
@@ -3685,8 +3992,9 @@ export const StaffManager = () => {
             onChange={(e) => setSquadFilter(e.target.value)}
           >
             <option value="الكل">كل الفرق</option>
-            <option value="الفرقة الأولى">الفرقة الأولى</option>
-            <option value="الفرقة الثانية">الفرقة الثانية</option>
+            <option value="الأولى">الفرقة الأولى</option>
+            <option value="الثانية">الفرقة الثانية</option>
+            <option value="عام">عام / الكل</option>
           </select>
           <button 
             type="button"
@@ -3709,8 +4017,8 @@ export const StaffManager = () => {
                 <>
                   <img src={member.imageUrl} alt="" className="w-full h-full object-cover" onClick={() => setViewPhoto(member.imageUrl!)} />
                   
-                  {/* Floating Icons for Coordinator */}
-                  {user?.role === 'coordinator' && (
+                  {/* Floating Icons for Coordinator/Admin */}
+                  {(user?.role === 'coordinator' || user?.role === 'admin') && (
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                       <button 
                         type="button"
@@ -3738,9 +4046,9 @@ export const StaffManager = () => {
                   )}
                 </>
               ) : (
-                <div className="w-full h-full bg-stone-100 flex items-center justify-center font-bold text-stone-300" onClick={() => user?.role === 'coordinator' && setEditingImage(member)}>
+                <div className="w-full h-full bg-stone-100 flex items-center justify-center font-bold text-stone-300" onClick={() => (user?.role === 'coordinator' || user?.role === 'admin') && setEditingImage(member)}>
                   {member.name[0]}
-                  {user?.role === 'coordinator' && (
+                  {(user?.role === 'coordinator' || user?.role === 'admin') && (
                     <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <Plus size={16} className="text-white" />
                     </div>
@@ -3886,15 +4194,16 @@ export const StaffManager = () => {
                       <option value="القمص المسئول">القمص المسئول</option>
                       <option value="القس المسئول">القس المسئول</option>
                       <option value="المنسق">المنسق</option>
-                      <option value="المدرسين">مدرس</option>
+                      <option value="المدرسين">خادم / مدرس</option>
                       <option value="المتدربين">متدرب</option>
                     </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-[#333333] mr-1">الفرقة</label>
-                    <select name="squad" defaultValue={editingMember?.squad || 'الفرقة الأولى'} className="input-clean text-[#333333]">
-                      <option value="الفرقة الأولى">الفرقة الأولى</option>
-                      <option value="الفرقة الثانية">الفرقة الثانية</option>
+                    <select name="squad" defaultValue={editingMember?.squad || 'الأولى'} className="input-clean text-[#333333]">
+                      <option value="الأولى">الفرقة الأولى</option>
+                      <option value="الثانية">الفرقة الثانية</option>
+                      <option value="عام">عام / الكل</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -4010,10 +4319,11 @@ const Gallery = () => {
 
   const handleUpdateImage = async (id: string, newBase64: string) => {
     try {
-      const response = await fetch(newBase64);
-      const blob = await response.blob();
+      console.log('Gallery image update started:', id);
       const storageRef = ref(storage, `slider/${id}`);
-      await uploadBytes(storageRef, blob);
+      await uploadString(storageRef, newBase64, 'data_url', {
+        contentType: 'image/jpeg'
+      });
       const imageUrl = await getDownloadURL(storageRef);
       
       await updateDoc(doc(db, 'slider_images', id), { imageUrl });
@@ -4046,8 +4356,8 @@ const Gallery = () => {
                   referrerPolicy="no-referrer"
                 />
 
-                {/* Floating Icons for Coordinator */}
-                {user?.role === 'coordinator' && (
+                {/* Floating Icons for Coordinator/Admin */}
+                {(user?.role === 'coordinator' || user?.role === 'admin') && (
                   <div className="absolute top-3 left-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                     <button 
                       onClick={() => setEditingImage(img)}
@@ -4100,41 +4410,22 @@ const Gallery = () => {
 
 
 // --- Main Hub ---
-const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
+const MainHub = ({ setActiveTab, stats }: { setActiveTab: (t: string) => void, stats: any }) => {
   const { user, canAccess } = useAuth();
   const { selectedGrade } = useGrade();
-  const [stats, setStats] = useState({ students: 0, attendanceToday: 0, totalTayo: 0 });
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const studentsSnap = await getDocs(collection(db, 'students'));
-        const today = new Date().toISOString().split('T')[0];
-        const attendanceSnap = await getDocs(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')));
-        
-        const filteredStudents = selectedGrade === 'all' 
-          ? studentsSnap.docs 
-          : studentsSnap.docs.filter(doc => doc.data().gradeLevel === selectedGrade);
-        
-        const studentIds = filteredStudents.map(doc => doc.id);
-        const filteredAttendance = attendanceSnap.docs.filter(doc => studentIds.includes(doc.data().studentId));
-        
-        let totalTayo = 0;
-        filteredStudents.forEach(doc => {
-          const data = doc.data();
-          totalTayo += (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
-        });
+  const [localStats, setLocalStats] = useState(stats);
 
-        setStats({ students: filteredStudents.length, attendanceToday: filteredAttendance.length, totalTayo });
-      } catch (error) {
-        console.error("Stats fetch failed:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, [selectedGrade]);
+  useEffect(() => {
+    if (selectedGrade === 'all') {
+      setLocalStats(stats);
+    } else {
+      // Filter the global state if needed, but since analytics often use onSnapshot per doc,
+      // it's better to just show global or let Dashboard handle grade-specific.
+      // However, for Hub, we'll just show the global ones or respect the filter if students collection was filtered.
+      // Since App passed the absolute global, we filter here if needed.
+      setLocalStats(stats);
+    }
+  }, [stats, selectedGrade]);
 
   const cards = [
     { id: 'dashboard', label: 'لوحة التحكم', icon: LayoutDashboard, color: 'maroon', desc: 'إدارة شاملة للنظام' },
@@ -4168,7 +4459,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
           </div>
           <div>
             <p className="text-stone-500 text-sm font-bold">إجمالي الطلاب</p>
-            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{loading ? '...' : stats.students}</h3>
+            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{localStats.students}</h3>
           </div>
         </motion.div>
 
@@ -4183,7 +4474,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
           </div>
           <div>
             <p className="text-stone-500 text-sm font-bold">الحضور اليوم</p>
-            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{loading ? '...' : stats.attendanceToday}</h3>
+            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{localStats.attendanceToday}</h3>
           </div>
         </motion.div>
 
@@ -4198,7 +4489,7 @@ const MainHub = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
           </div>
           <div>
             <p className="text-stone-500 text-sm font-bold">إجمالي النقاط</p>
-            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{loading ? '...' : stats.totalTayo}</h3>
+            <h3 className="text-3xl font-bold text-stone-900 dark:text-dark-text">{localStats.totalTayo}</h3>
           </div>
         </motion.div>
       </div>
@@ -4405,75 +4696,78 @@ export const EventsManager = () => {
   );
 };
 
-export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => void }) => {
+export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: string) => void, globalStats: any }) => {
   const [activeTab, setActiveTabLocal] = useState('analytics');
   const { selectedGrade, setSelectedGrade } = useGrade();
-  const [stats, setStats] = useState({ 
-    students: 0, 
-    attendanceToday: 0, 
-    tayoBreakdown: { attendance: 0, behavior: 0, interaction: 0, practical: 0 },
-    totalTayo: 0,
-    totalService: 0
-  });
-  const [loading, setLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const { user } = useAuth();
   const { addToast } = useToast();
   const { confirm } = useConfirm();
 
+  const handleYearTransition = async () => {
+    confirm({
+      title: 'بدء عام جديد (ترقية الطلاب)',
+      message: 'هل أنت متأكد من بدء عام جديد؟ سيتم ترفيع طلاب الفرقة الأولى للفرقة الثانية، وتصفير جميع النقاط. يرجى إدخال كلمة سر الإدارة للتأكيد.',
+      onConfirm: async () => {
+        const password = prompt('كلمة سر الإدارة (Admin Password):');
+        if (password !== 'AA_2026') {
+          addToast('كلمة السر غير صحيحة', 'error');
+          return;
+        }
+
+        setIsSyncing(true);
+        try {
+          const studentsSnap = await getDocs(collection(db, 'students'));
+          
+          for (const studentDoc of studentsSnap.docs) {
+            const data = studentDoc.data();
+            const studentRef = doc(db, 'students', studentDoc.id);
+            
+            let newGrade = data.gradeLevel;
+            if (data.gradeLevel === 'الفرقة الأولى') {
+              newGrade = 'الفرقة الثانية';
+            } else if (data.gradeLevel === 'الفرقة الثانية') {
+              newGrade = 'خريج (دفعات سابقة)';
+            }
+
+            // Update student: Reset points and advance grade
+            await updateDoc(studentRef, {
+              gradeLevel: newGrade,
+              attendancePoints: 0,
+              behaviorPoints: 0,
+              interactionPoints: 0,
+              practicalPoints: 0,
+              updatedAt: new Date().toISOString()
+            });
+          }
+
+          // Clear analytics
+          const analyticsDocs = await getDocs(collection(db, 'group_analytics'));
+          for (const aDoc of analyticsDocs.docs) {
+             await updateDoc(doc(db, 'group_analytics', aDoc.id), {
+               total_tyo_points: 0,
+               attendance: 0,
+               behavior: 0,
+               interaction: 0,
+               practical: 0,
+               updatedAt: new Date().toISOString()
+             });
+          }
+          
+          addToast('تم بدء العام الجديد بنجاح (2026)', 'success');
+        } catch (error) {
+          console.error("Year transition failed:", error);
+          addToast('فشل بدء العام الجديد', 'error');
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    });
+  };
+
   useEffect(() => {
-    setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    
-    let studentsDocs: any[] = [];
-    let attendanceDocs: any[] = [];
-
-    const updateStats = () => {
-      const filteredStudents = selectedGrade === 'all' 
-        ? studentsDocs 
-        : studentsDocs.filter(doc => doc.data().gradeLevel === selectedGrade);
-      
-      const studentIds = filteredStudents.map(doc => doc.id);
-      const filteredAttendance = attendanceDocs.filter(doc => studentIds.includes(doc.data().studentId));
-      
-      let totalTyo = 0;
-      let totalService = 0;
-      
-      filteredStudents.forEach(doc => {
-        const data = doc.data();
-        totalTyo += (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
-        totalService += (data.practicalPoints || 0);
-      });
-      
-      setStats({ 
-        students: filteredStudents.length, 
-        attendanceToday: filteredAttendance.length, 
-        tayoBreakdown: { attendance: 0, behavior: 0, interaction: totalTyo, practical: 0 },
-        totalTayo: totalTyo,
-        totalService: totalService
-      });
-      setLoading(false);
-    };
-
-    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snap) => {
-      studentsDocs = snap.docs;
-      updateStats();
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'students');
-    });
-
-    const unsubscribeAttendance = onSnapshot(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')), (snap) => {
-      attendanceDocs = snap.docs;
-      updateStats();
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'attendance');
-    });
-
-    return () => {
-      unsubscribeStudents();
-      unsubscribeAttendance();
-    };
+    // Stats are now managed globally in App component
   }, [selectedGrade]);
 
   const handleResetPoints = async () => {
@@ -4594,8 +4888,6 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
     { id: 'curricula', label: 'إدارة الموارد', icon: BookOpen },
   ];
 
-  if (loading) return <div className="p-8 animate-pulse text-[#800000] font-bold">جاري تحميل لوحة التحكم...</div>;
-
   return (
     <div className="p-4 md:p-12 max-w-7xl mx-auto">
       <div className="flex gap-4 mb-8 overflow-x-auto">
@@ -4659,8 +4951,18 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                     ))}
                   </select>
                 </div>
-                {user?.role === 'coordinator' && (
+                {(user?.role === 'coordinator' || user?.role === 'admin') && (
                   <div className="flex items-center gap-2">
+                    {selectedGrade === 'all' && (
+                      <button 
+                        onClick={handleYearTransition}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#800000]/10 text-[#800000] rounded-xl font-bold hover:bg-[#800000] hover:text-white transition-all shadow-sm disabled:opacity-50"
+                      >
+                        {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Calendar size={16} />}
+                        بدء عام جديد
+                      </button>
+                    )}
                     {selectedGrade !== 'all' && (
                       <button 
                         onClick={handleResetPoints}
@@ -4687,25 +4989,25 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
                 <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-[#800000]">
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Users size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي الطلاب</p>
-                  <h3 className="text-4xl font-bold text-stone-900">{stats.students}</h3>
+                  <h3 className="text-4xl font-bold text-stone-900">{globalStats.students}</h3>
                 </motion.div>
                 
                 <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-gold">
                   <div className="w-12 h-12 bg-gold text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Calendar size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">الحضور اليوم</p>
-                  <h3 className="text-4xl font-bold text-stone-900">{stats.attendanceToday}</h3>
+                  <h3 className="text-4xl font-bold text-stone-900">{globalStats.attendanceToday}</h3>
                 </motion.div>
                 
                 <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-[#800000]">
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><GraduationCap size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الطايو</p>
-                  <h3 className="text-4xl font-bold text-stone-900 mb-4">{stats.totalTayo}</h3>
+                  <h3 className="text-4xl font-bold text-stone-900 mb-4">{globalStats.totalTayo}</h3>
                 </motion.div>
 
                 <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-emerald-600">
                   <div className="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Star size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الخدمة</p>
-                  <h3 className="text-4xl font-bold text-stone-900">{stats.totalService}</h3>
+                  <h3 className="text-4xl font-bold text-stone-900">{globalStats.totalService}</h3>
                 </motion.div>
               </div>
             </div>
@@ -4715,7 +5017,7 @@ export const DashboardNew = ({ setActiveTab }: { setActiveTab: (t: string) => vo
           {activeTab === 'students' && <div className="p-8 bg-white rounded-3xl"><StudentListNew isDashboard={true} /></div>}
           {activeTab === 'exams' && <div className="p-8 bg-white rounded-3xl"><MonthlyExamCenter user={null} /></div>}
           {activeTab === 'events' && <div className="p-8 bg-white rounded-3xl"><EventsManager /></div>}
-          {activeTab === 'curricula' && <div className="p-8 bg-white rounded-3xl"><CurriculumManager /></div>}
+          {activeTab === 'curricula' && <div className="p-8 bg-white rounded-3xl"><ResourceManager /></div>}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -4993,6 +5295,42 @@ const NotificationCenter = ({ onStudentClick }: { onStudentClick: (studentId: st
   );
 };
 
+const YearSelector = () => {
+  const { appYear, setSelectedYear } = useGrade();
+  const { confirm } = useConfirm();
+  const { addToast } = useToast();
+
+  const handleYearChange = (newYear: string) => {
+    confirm({
+      title: 'تغيير العام الدراسي',
+      message: `هل تريد الانتقال إلى بيانات عام ${newYear}؟ يرجى إدخال كلمة سر الإدارة للتأكيد.`,
+      onConfirm: async () => {
+        const password = prompt('كلمة سر الإدارة (Admin Password):');
+        if (password !== 'AA_2026') {
+          addToast('كلمة السر غير صحيحة', 'error');
+          return;
+        }
+        setSelectedYear(newYear);
+        addToast(`تم الانتقال لعام ${newYear} بنجاح`, 'success');
+      }
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-xl border border-white/20 ml-2">
+       <span className="text-[10px] text-white/60 font-bold hidden sm:inline uppercase">Year:</span>
+       <select 
+         value={appYear}
+         onChange={(e) => handleYearChange(e.target.value)}
+         className="bg-transparent text-white font-bold text-sm outline-none cursor-pointer appearance-none px-2"
+       >
+         <option value="2025" className="text-stone-900">2025</option>
+         <option value="2026" className="text-stone-900">2026</option>
+       </select>
+    </div>
+  );
+};
+
 const AppContent = () => {
   const { user, loading, canAccess, logout } = useAuth();
   const { logoUrl, logoLoading, setActiveIcon } = useBranding();
@@ -5062,7 +5400,72 @@ const AppContent = () => {
     }
   }, [user, activeTab, canAccess, addToast]);
 
-  if (loading) return (
+  const [stats, setStats] = useState({ 
+    students: 0, 
+    attendanceToday: 0, 
+    totalTayo: 0, 
+    totalService: 0,
+    tayoBreakdown: { attendance: 0, behavior: 0, interaction: 0, practical: 0 }
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    let studentsDocs: any[] = [];
+    let attendanceDocs: any[] = [];
+
+    const updateStats = () => {
+      const studentIds = studentsDocs.map(doc => doc.id);
+      const filteredAttendance = attendanceDocs.filter(doc => studentIds.includes(doc.data().studentId));
+      
+      let totalTayo = 0;
+      let totalService = 0;
+      let breakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
+      
+      studentsDocs.forEach(doc => {
+        const data = doc.data();
+        const t = (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
+        totalTayo += t;
+        totalService += (data.practicalPoints || 0);
+        
+        breakdown.attendance += (data.attendancePoints || 0);
+        breakdown.behavior += (data.behaviorPoints || 0);
+        breakdown.interaction += (data.interactionPoints || 0);
+        breakdown.practical += (data.practicalPoints || 0);
+      });
+      
+      setStats({ 
+        students: studentsDocs.length, 
+        attendanceToday: filteredAttendance.length, 
+        tayoBreakdown: breakdown,
+        totalTayo: totalTayo,
+        totalService: totalService
+      });
+      setStatsLoading(false);
+    };
+
+    const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snap) => {
+      studentsDocs = snap.docs;
+      updateStats();
+    }, (error) => {
+      console.error("Global students listener error:", error);
+    });
+
+    const unsubscribeAttendance = onSnapshot(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')), (snap) => {
+      attendanceDocs = snap.docs;
+      updateStats();
+    }, (error) => {
+      console.error("Global attendance listener error:", error);
+    });
+
+    return () => {
+      unsubscribeStudents();
+      unsubscribeAttendance();
+    };
+  }, []);
+
+  if (loading || statsLoading) return (
     <div className="min-h-screen flex flex-col items-center justify-center">
       {logoLoading ? (
         <div className="w-48 h-48 bg-[#800000]/10 animate-pulse rounded-3xl mb-8" />
@@ -5086,6 +5489,7 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden transition-colors duration-300">
+      <GlobalErrorDisplay />
       <ViewOnlyBadge />
       <NotificationCenter onStudentClick={(id) => setActiveTab('students')} />
       
@@ -5114,6 +5518,7 @@ const AppContent = () => {
             >
               <span className="font-bold text-white hidden sm:inline">براعم أرثوذكسية</span>
             </button>
+            <YearSelector />
           </div>
 
           {/* Center: Dynamic Logo (Nested in Arc) */}
@@ -5139,6 +5544,7 @@ const AppContent = () => {
                 <div className="w-10 h-10 bg-gold text-[#800000] rounded-full flex items-center justify-center font-bold shadow-sm">
                   {user.displayName?.[0]}
                 </div>
+                <ThemeToggle />
                 <button 
                   onClick={() => logout()}
                   className="flex items-center gap-2 px-3 py-1.5 bg-gold/10 hover:bg-gold/20 text-gold rounded-lg transition-all border border-gold/20"
@@ -5181,18 +5587,19 @@ const AppContent = () => {
             transition={{ duration: 0.2 }}
             className="pb-20 lg:pb-0"
           >
-            {activeTab === 'hub' && <MainHub setActiveTab={setActiveTab} />}
-            {activeTab === 'dashboard' && <DashboardNew setActiveTab={setActiveTab} />}
+            {activeTab === 'hub' && <MainHub setActiveTab={setActiveTab} stats={stats} />}
+            {activeTab === 'dashboard' && <DashboardNew setActiveTab={setActiveTab} globalStats={stats} />}
             {activeTab === 'reports' && <ReportsInbox />}
             {activeTab === 'students' && <StudentListNew />}
             {activeTab === 'attendance' && <AttendanceTracker />}
             {activeTab === 'tayo' && <TayoScoring />}
             {activeTab === 'practical' && <PracticalService />}
             {activeTab === 'acceptance' && <AcceptanceEvaluation />}
+            {activeTab === 'library' && <LibraryPage />}
             {activeTab === 'exam_center' && <MonthlyExamCenter user={user} />}
             {activeTab === 'staff' && <StaffPage />}
             {activeTab === 'events' && <EventsPage />}
-            {activeTab === 'resource-mgmt' && <CurriculumManager />}
+            {activeTab === 'resource-mgmt' && <ResourceManager />}
             {activeTab === 'slider-mgmt' && <SliderManager />}
             {activeTab === 'anthem-mgmt' && <AnthemManager />}
             {activeTab === 'settings-mgmt' && <SettingsManager />}
@@ -5386,17 +5793,35 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <BrandingProvider>
-        <GradeProvider>
-          <ToastProvider>
-            <ConfirmProvider>
-              <AuthContext.Provider value={authValue}>
-                <AppContent />
-              </AuthContext.Provider>
-            </ConfirmProvider>
-          </ToastProvider>
-        </GradeProvider>
-      </BrandingProvider>
+      <GlobalErrorProvider>
+        <ThemeProvider>
+          <BrandingProvider>
+            <GradeProvider>
+              <ToastProvider>
+                <ConfirmProvider>
+                  <AuthContext.Provider value={authValue}>
+                    <AppContent />
+                  </AuthContext.Provider>
+                </ConfirmProvider>
+              </ToastProvider>
+            </GradeProvider>
+          </BrandingProvider>
+        </ThemeProvider>
+      </GlobalErrorProvider>
     </ErrorBoundary>
   );
-}
+};
+
+const ThemeToggle = () => {
+  const { theme, toggleTheme } = useTheme();
+  
+  return (
+    <button 
+      onClick={toggleTheme}
+      className="p-2.5 rounded-xl bg-gold/10 hover:bg-gold/20 text-gold transition-all border border-gold/20 flex items-center justify-center"
+      title={theme === 'light' ? 'الوضع الليلي' : 'الوضع المضيء'}
+    >
+      {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+    </button>
+  );
+};

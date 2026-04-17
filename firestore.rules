@@ -89,7 +89,7 @@ service cloud.firestore {
 
     match /attendance/{recordId} {
       allow read: if isServant();
-      allow write: if isAttendance() || isCoordinator();
+      allow write: if isStaff();
     }
 
     match /grades/{recordId} {

@@ -53,6 +53,7 @@ export interface Resource {
   link: string;
   updatedAt: string;
   updatedBy: string;
+  fileType?: 'pptx' | 'pdf' | 'link';
 }
 
 export interface Curriculum {

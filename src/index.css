@@ -8,6 +8,16 @@
   --card-bg: #FFFFFF;
   --border-color: #800000; /* 1px Maroon Border */
   --shadow-color: rgba(0, 0, 0, 0.1);
+  --logo-url: url('/logo.png');
+}
+
+:root.dark {
+  --bg-main: #120A0A; /* Deep Dark Maroon/Charcoal */
+  --primary-red: #B71C1C; /* Lighter/Vibrant Maroon */
+  --text-charcoal: #F3E5AB; /* Vanilla Latte as text color */
+  --card-bg: #1C1212; /* Darker Card BG */
+  --border-color: #B71C1C;
+  --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
 @theme {
@@ -52,9 +62,17 @@
     text-shadow: none !important;
   }
   
+  .dark .text-stone-400, .dark .text-stone-500 {
+    opacity: 0.7;
+  }
+  
   /* NO WHITE OR GOLD TEXT on vanilla background - but allow it elsewhere like header */
   .content-area .text-white, .content-area .text-gold {
     color: var(--primary-red) !important;
+  }
+
+  .dark .content-area .text-white, .dark .content-area .text-gold {
+    color: var(--text-charcoal) !important;
   }
   
   svg {

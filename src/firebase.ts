@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, getDocFromServer, FirestoreError, enableMultiTabIndexedDbPersistence, increment } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, uploadString } from 'firebase/storage';
 
 // Firebase configuration hardcoded for GitHub Pages deployment
 const firebaseConfig = {
@@ -81,6 +81,6 @@ testConnection();
 
 export { 
   collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, increment,
-  ref, uploadBytes, getDownloadURL, deleteObject
+  ref, uploadBytes, getDownloadURL, deleteObject, uploadString
 };
 export type { FirestoreError };

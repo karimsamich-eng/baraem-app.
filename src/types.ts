@@ -112,3 +112,18 @@ export interface Settings {
   updatedAt: string;
   updatedBy: string;
 }
+
+export interface SystemAccount {
+  id: string;
+  username: string;
+  password?: string;
+  displayName: string;
+  role: 'admin' | 'coordinator' | 'attendance' | 'tayo' | 'practical' | 'servant' | 'guest';
+}
+
+export interface SecuritySettings {
+  accounts: SystemAccount[];
+  masterPassword?: string;
+  updatedAt: string;
+  updatedBy: string;
+}

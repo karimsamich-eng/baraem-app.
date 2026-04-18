@@ -24,7 +24,7 @@ import {
   ArrowLeft, Save, Filter, Download, UserPlus, BookOpen, AlertCircle, Star, Heart,
   FileText, Eye, EyeOff, Menu, X, Upload, Image as ImageIcon,
   CheckCircle, Info, MessageCircle, Sun, Moon, UserCog, Bell, AlertTriangle, Music,
-  Loader2
+  Loader2, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
@@ -4705,65 +4705,121 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
   const { addToast } = useToast();
   const { confirm } = useConfirm();
 
-  const handleYearTransition = async () => {
-    confirm({
-      title: 'بدء عام جديد (ترقية الطلاب)',
-      message: 'هل أنت متأكد من بدء عام جديد؟ سيتم ترفيع طلاب الفرقة الأولى للفرقة الثانية، وتصفير جميع النقاط. يرجى إدخال كلمة سر الإدارة للتأكيد.',
-      onConfirm: async () => {
-        const password = prompt('كلمة سر الإدارة (Admin Password):');
-        if (password !== 'AA_2026') {
-          addToast('كلمة السر غير صحيحة', 'error');
-          return;
-        }
+  const [masterAction, setMasterAction] = useState<'yearTransition' | 'resetPoints' | null>(null);
+  const [masterPasswordInput, setMasterPasswordInput] = useState('');
 
-        setIsSyncing(true);
-        try {
-          const studentsSnap = await getDocs(collection(db, 'students'));
-          
-          for (const studentDoc of studentsSnap.docs) {
-            const data = studentDoc.data();
-            const studentRef = doc(db, 'students', studentDoc.id);
-            
-            let newGrade = data.gradeLevel;
-            if (data.gradeLevel === 'الفرقة الأولى') {
-              newGrade = 'الفرقة الثانية';
-            } else if (data.gradeLevel === 'الفرقة الثانية') {
-              newGrade = 'خريج (دفعات سابقة)';
-            }
-
-            // Update student: Reset points and advance grade
-            await updateDoc(studentRef, {
-              gradeLevel: newGrade,
-              attendancePoints: 0,
-              behaviorPoints: 0,
-              interactionPoints: 0,
-              practicalPoints: 0,
-              updatedAt: new Date().toISOString()
-            });
-          }
-
-          // Clear analytics
-          const analyticsDocs = await getDocs(collection(db, 'group_analytics'));
-          for (const aDoc of analyticsDocs.docs) {
-             await updateDoc(doc(db, 'group_analytics', aDoc.id), {
-               total_tyo_points: 0,
-               attendance: 0,
-               behavior: 0,
-               interaction: 0,
-               practical: 0,
-               updatedAt: new Date().toISOString()
-             });
-          }
-          
-          addToast('تم بدء العام الجديد بنجاح (2026)', 'success');
-        } catch (error) {
-          console.error("Year transition failed:", error);
-          addToast('فشل بدء العام الجديد', 'error');
-        } finally {
-          setIsSyncing(false);
-        }
+  const executeMasterAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!masterPasswordInput) return;
+    
+    let validPassword = 'AA_2026'; // Default fallback
+    try {
+      const securityDoc = await getDoc(doc(db, 'settings', 'security'));
+      if (securityDoc.exists() && securityDoc.data().masterPassword) {
+        validPassword = securityDoc.data().masterPassword;
       }
-    });
+    } catch (err) {
+      console.error("Failed to check master password", err);
+    }
+
+    if (masterPasswordInput !== validPassword) {
+      addToast('كلمة السر غير صحيحة', 'error');
+      return;
+    }
+
+    const action = masterAction;
+    setMasterAction(null);
+    setMasterPasswordInput('');
+
+    if (action === 'yearTransition') {
+      setIsSyncing(true);
+      try {
+        const studentsSnap = await getDocs(collection(db, 'students'));
+        
+        for (const studentDoc of studentsSnap.docs) {
+          const data = studentDoc.data();
+          const studentRef = doc(db, 'students', studentDoc.id);
+          
+          let newGrade = data.gradeLevel;
+          if (data.gradeLevel === 'الفرقة الأولى') {
+            newGrade = 'الفرقة الثانية';
+          } else if (data.gradeLevel === 'الفرقة الثانية') {
+            newGrade = 'خريج (دفعات سابقة)';
+          }
+
+          // Update student: Reset points and advance grade
+          await updateDoc(studentRef, {
+            gradeLevel: newGrade,
+            attendancePoints: 0,
+            behaviorPoints: 0,
+            interactionPoints: 0,
+            practicalPoints: 0,
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        // Clear analytics
+        const analyticsDocs = await getDocs(collection(db, 'group_analytics'));
+        for (const aDoc of analyticsDocs.docs) {
+           await updateDoc(doc(db, 'group_analytics', aDoc.id), {
+             total_tyo_points: 0,
+             attendance: 0,
+             behavior: 0,
+             interaction: 0,
+             practical: 0,
+             updatedAt: new Date().toISOString()
+           });
+        }
+        
+        addToast('تم بدء العام الجديد بنجاح', 'success');
+      } catch (error) {
+        console.error("Year transition failed:", error);
+        addToast('فشل بدء العام الجديد', 'error');
+      } finally {
+        setIsSyncing(false);
+      }
+    } else if (action === 'resetPoints') {
+      setIsResetting(true);
+      try {
+        const analyticsRef = doc(db, 'group_analytics', `grade_${selectedGrade}`);
+        const docSnap = await getDoc(analyticsRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const historyEntry = {
+            total: data.total_tyo_points || 0,
+            breakdown: {
+              attendance: data.attendance || 0,
+              behavior: data.behavior || 0,
+              interaction: data.interaction || 0,
+              practical: data.practical || 0
+            },
+            resetAt: new Date().toISOString(),
+            resetBy: user?.username || 'admin'
+          };
+
+          await updateDoc(analyticsRef, {
+            total_tyo_points: 0,
+            attendance: 0,
+            behavior: 0,
+            interaction: 0,
+            practical: 0,
+            history: [historyEntry, ...(data.history || [])].slice(0, 10)
+          });
+          
+          addToast('تم تصفير النقاط بنجاح', 'success');
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.UPDATE, 'group_analytics');
+        addToast('فشل تصفير النقاط', 'error');
+      } finally {
+        setIsResetting(false);
+      }
+    }
+  };
+
+  const handleYearTransition = async () => {
+    setMasterAction('yearTransition');
   };
 
   useEffect(() => {
@@ -4775,49 +4831,7 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
       addToast('يرجى اختيار مرحلة محددة لتصفير نقاطها', 'info');
       return;
     }
-
-    confirm({
-      title: 'تصفير النقاط',
-      message: `هل أنت متأكد من تصفير نقاط ${selectedGrade}؟ سيتم حفظ المجموع الحالي في السجل.`,
-      onConfirm: async () => {
-        setIsResetting(true);
-        try {
-          const analyticsRef = doc(db, 'group_analytics', `grade_${selectedGrade}`);
-          const docSnap = await getDoc(analyticsRef);
-          
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            const historyEntry = {
-              total: data.total_tyo_points || 0,
-              breakdown: {
-                attendance: data.attendance || 0,
-                behavior: data.behavior || 0,
-                interaction: data.interaction || 0,
-                practical: data.practical || 0
-              },
-              resetAt: new Date().toISOString(),
-              resetBy: user?.username || 'admin'
-            };
-
-            await updateDoc(analyticsRef, {
-              total_tyo_points: 0,
-              attendance: 0,
-              behavior: 0,
-              interaction: 0,
-              practical: 0,
-              history: [historyEntry, ...(data.history || [])].slice(0, 10)
-            });
-            
-            addToast('تم تصفير النقاط بنجاح', 'success');
-          }
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, 'group_analytics');
-          addToast('فشل تصفير النقاط', 'error');
-        } finally {
-          setIsResetting(false);
-        }
-      }
-    });
+    setMasterAction('resetPoints');
   };
 
   const handleSyncData = async () => {
@@ -5054,6 +5068,66 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
           {activeTab === 'events' && <div className="p-8 bg-white rounded-3xl"><EventsManager /></div>}
           {activeTab === 'curricula' && <div className="p-8 bg-white rounded-3xl"><ResourceManager /></div>}
         </motion.div>
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {masterAction && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden relative"
+            >
+              <button onClick={() => setMasterAction(null)} className="absolute top-4 left-4 p-2 text-stone-400 hover:text-stone-600 hover:bg-stone-100 rounded-full transition-all">
+                <X size={20} />
+              </button>
+              
+              <div className="p-8">
+                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                  <ShieldAlert size={32} />
+                </div>
+                
+                <h3 className="text-xl font-bold text-center text-stone-900 mb-2">
+                  {masterAction === 'yearTransition' ? 'بدء عام جديد (ترقية الطلاب)' : 'تصفير النقاط'}
+                </h3>
+                
+                <p className="text-center text-stone-500 mb-8 text-sm leading-relaxed">
+                  {masterAction === 'yearTransition' 
+                    ? 'تحذير: سيتم ترفيع طلاب جميع الفرق الدراسية للفرقة التالية، مع تصفير كامل لجميع النقاط. هذه الحركة لا يمكن التراجع عنها.'
+                    : `تحذير: سيتم تصفير نقاط (${selectedGrade}) للعام الحالي ونقلها لجداول السجل التاريخي.`
+                  }
+                </p>
+
+                <form onSubmit={executeMasterAction} className="space-y-6">
+                  <div>
+                    <label className="text-xs font-bold text-stone-500 uppercase tracking-wide block mb-2 text-center text-red-600">
+                      يرجى إدخال كلمة سر الإدارة للتأكيد الواعي
+                    </label>
+                    <input 
+                      type="password" 
+                      autoFocus
+                      required
+                      value={masterPasswordInput} 
+                      onChange={(e) => setMasterPasswordInput(e.target.value)}
+                      className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-center font-bold tracking-widest text-[#800000] focus:ring-2 focus:ring-[#800000] outline-none" 
+                      placeholder="••••••••" 
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setMasterAction(null)} className="flex-1 py-3 bg-stone-100 text-stone-500 font-bold rounded-xl hover:bg-stone-200 transition-colors">
+                      إلغاء التغييرات
+                    </button>
+                    <button type="submit" className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-600/30">
+                      تأكيد التنفيذ
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -5734,12 +5808,33 @@ export default function App() {
     
     if (username === 'guest') {
       profile = { id: 'guest', username: 'زائر', displayName: 'زائر', role: 'guest' };
-    } else if (username === 'المنسق' && password === 'AA_2026') {
-      profile = { id: 'admin', username: 'المنسق', displayName: 'المنسق', role: 'admin' };
-    } else if (username === 'الحضور' && password === 'MM_2026') {
-      profile = { id: 'attendance', username: 'الحضور', displayName: 'الحضور', role: 'attendance' };
-    } else if (username === 'الطايو' && password === 'TT_2026') {
-      profile = { id: 'tayo', username: 'الطايو', displayName: 'الطايو', role: 'tayo' };
+    } else {
+      try {
+        const securityDoc = await getDoc(doc(db, 'settings', 'security'));
+        if (securityDoc.exists()) {
+          const securityData = securityDoc.data() as any;
+          const account = securityData.accounts?.find((a: any) => a.username === username && a.password === password);
+          if (account) {
+            profile = {
+              id: account.id || account.role,
+              username: account.username,
+              displayName: account.displayName,
+              role: account.role
+            };
+          }
+        } else {
+          // Fallback to defaults to prevent lock-out if document doesn't exist
+          if (username === 'المنسق' && password === 'AA_2026') {
+            profile = { id: 'admin', username: 'المنسق', displayName: 'المنسق', role: 'admin' };
+          } else if (username === 'الحضور' && password === 'MM_2026') {
+            profile = { id: 'attendance', username: 'الحضور', displayName: 'الحضور', role: 'attendance' };
+          } else if (username === 'الطايو' && password === 'TT_2026') {
+            profile = { id: 'tayo', username: 'الطايو', displayName: 'الطايو', role: 'tayo' };
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching login settings:", err);
+      }
     }
 
     if (profile) {

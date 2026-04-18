@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Save, Plus, Trash2, Edit2, Upload, Eye, X, Star, Calendar, Clock, Search, RotateCw, Crop as CropIcon, Image as ImageIcon } from 'lucide-react';
+import { Save, Plus, Trash2, Edit2, Upload, Eye, X, Star, Calendar, Clock, Search, RotateCw, Crop as CropIcon, Image as ImageIcon, ShieldAlert, Users, Lock, Key } from 'lucide-react';
 import { db, handleFirestoreError, OperationType, storage, ref, uploadBytes, getDownloadURL, deleteObject, uploadString } from '../firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { Curriculum, SliderImage, StaffMember, Event, Settings } from '../types';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDoc } from 'firebase/firestore';
+import { Curriculum, SliderImage, StaffMember, Event, Settings, SecuritySettings, SystemAccount } from '../types';
 import { useAuth, useToast, useConfirm, useBranding } from '../contexts';
 import { fileToBase64 } from '../utils';
 import ReactCrop, { centerCrop, makeAspectCrop, Crop, PixelCrop, convertToPixelCrop } from 'react-image-crop';
@@ -270,17 +270,54 @@ export const SettingsManager = () => {
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'identity' | 'security'>('identity');
+
+  // Security State
+  const [securitySettings, setSecuritySettings] = useState<SecuritySettings | null>(null);
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [newUser, setNewUser] = useState<Partial<SystemAccount>>({ username: '', password: '', role: 'guest', displayName: '' });
+  const [editingUser, setEditingUser] = useState<Partial<SystemAccount>>({ username: '', password: '', role: 'guest', displayName: '' });
+  const [masterPasswordInput, setMasterPasswordInput] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'settings', 'site_settings'), (doc) => {
+    // Load both site settings and security settings
+    const unsubSite = onSnapshot(doc(db, 'settings', 'site_settings'), (doc) => {
       if (doc.exists()) {
         setSettings({ id: doc.id, ...doc.data() } as Settings);
       }
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'settings');
+      handleFirestoreError(error, OperationType.GET, 'site_settings');
     });
-    return () => unsubscribe();
+
+    const unsubSecurity = onSnapshot(doc(db, 'settings', 'security'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as SecuritySettings;
+        setSecuritySettings(data);
+        if (data.masterPassword) {
+          setMasterPasswordInput(data.masterPassword);
+        }
+      } else {
+        // Explicit default creation if doesn't exist
+        const defaultAccounts: SystemAccount[] = [
+          { id: 'admin', username: 'المنسق', password: 'AA_2026', displayName: 'المنسق', role: 'admin' },
+          { id: 'attendance', username: 'الحضور', password: 'MM_2026', displayName: 'الحضور', role: 'attendance' },
+          { id: 'tayo', username: 'الطايو', password: 'TT_2026', displayName: 'الطايو', role: 'tayo' }
+        ];
+        // Don't set state indefinitely, wait for onSnapshot to trigger after we manually set it if needed
+        // We shouldn't automatically write to DB in onSnapshot to prevent loops. Just set memory default.
+        setSecuritySettings({ accounts: defaultAccounts, masterPassword: 'AA_2026', updatedAt: new Date().toISOString(), updatedBy: 'system' });
+        setMasterPasswordInput('AA_2026');
+      }
+    }, (error) => {
+      console.error("Failed to load security settings:", error);
+    });
+
+    return () => {
+      unsubSite();
+      unsubSecurity();
+    }
   }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -399,6 +436,86 @@ export const SettingsManager = () => {
     }
   };
 
+  const handleUpdateSecurity = async (updates: Partial<SecuritySettings>) => {
+    try {
+      const current = securitySettings || { accounts: [], masterPassword: 'AA_2026' };
+      const merged = { ...current, ...updates, updatedAt: new Date().toISOString(), updatedBy: user?.username || '' };
+      await setDoc(doc(db, 'settings', 'security'), merged);
+      addToast('تم حفظ إعدادات الأمان بنجاح', 'success');
+    } catch(err: any) {
+      console.error(err);
+      addToast('فشل التحديث: ' + err.message, 'error');
+    }
+  };
+
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUser.username || !newUser.password || !newUser.displayName) {
+      addToast('يرجى ملء جميع البيانات', 'error');
+      return;
+    }
+    const accounts = [...(securitySettings?.accounts || [])];
+    if (accounts.some(a => a.username === newUser.username)) {
+      addToast('اسم المستخدم موجود مسبقاً', 'error');
+      return;
+    }
+    accounts.push({
+      id: Date.now().toString(),
+      username: newUser.username!,
+      password: newUser.password!,
+      displayName: newUser.displayName!,
+      role: newUser.role as any
+    });
+    handleUpdateSecurity({ accounts });
+    setIsAddingUser(false);
+    setNewUser({ username: '', password: '', role: 'guest', displayName: '' });
+  };
+
+  const handleDeleteUser = (accountId: string) => {
+    confirm({
+      title: 'حذف مستخدم',
+      message: 'هل أنت متأكد من حذف هذا المستخدم؟',
+      onConfirm: () => {
+        const accounts = (securitySettings?.accounts || []).filter(a => a.id !== accountId);
+        handleUpdateSecurity({ accounts });
+      }
+    });
+  };
+
+  const handleStartEditUser = (account: SystemAccount) => {
+    setEditingUserId(account.id);
+    setEditingUser({ ...account });
+  };
+
+  const handleSaveEditUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser.username || !editingUser.password || !editingUser.displayName) {
+      addToast('يرجى ملء جميع البيانات', 'error');
+      return;
+    }
+    const accounts = [...(securitySettings?.accounts || [])];
+    const index = accounts.findIndex(a => a.id === editingUserId);
+    if (index !== -1) {
+      // Check if username changed and belongs to someone else
+      if (accounts.some(a => a.username === editingUser.username && a.id !== editingUserId)) {
+        addToast('اسم المستخدم موجود مسبقاً', 'error');
+        return;
+      }
+      accounts[index] = { ...accounts[index], ...editingUser } as SystemAccount;
+      handleUpdateSecurity({ accounts });
+    }
+    setEditingUserId(null);
+  };
+
+
+  const handleUpdateMasterPassword = () => {
+    if (!masterPasswordInput || masterPasswordInput.length < 4) {
+      addToast('يجب أن تتكون كلمة المرور من 4 أحرف على الأقل', 'error');
+      return;
+    }
+    handleUpdateSecurity({ masterPassword: masterPasswordInput });
+  };
+
   const handleDeleteLogo = () => {
     confirm({
       title: 'حذف الشعار',
@@ -432,17 +549,33 @@ export const SettingsManager = () => {
 
   return (
     <div className="p-12 max-w-4xl mx-auto">
-      <header className="mb-12">
-        <h1 className="text-4xl font-bold text-[#800000] mb-2">إعدادات الهوية</h1>
-        <p className="text-stone-500">إدارة شعار الخدمة والهوية البصرية</p>
+      <header className="mb-8">
+        <h1 className="text-4xl font-bold text-[#800000] mb-2">إعدادات النظام</h1>
+        <p className="text-stone-500">إدارة شعار الخدمة والخصوصية والأمان</p>
       </header>
+      
+      <div className="flex gap-4 mb-8">
+        <button 
+          onClick={() => setActiveTab('identity')}
+          className={`flex-1 py-3 font-bold rounded-2xl flex items-center justify-center gap-2 transition-colors ${activeTab === 'identity' ? 'bg-[#800000] text-white shadow-md' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+        >
+          <ImageIcon size={20} /> الهوية المرجئية
+        </button>
+        <button 
+          onClick={() => setActiveTab('security')}
+          className={`flex-1 py-3 font-bold rounded-2xl flex items-center justify-center gap-2 transition-colors ${activeTab === 'security' ? 'bg-[#800000] text-white shadow-md' : 'bg-white text-stone-500 hover:bg-stone-50'}`}
+        >
+          <ShieldAlert size={20} /> الخصوصية والأمان
+        </button>
+      </div>
 
-      <div className="bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden">
-        <div className="p-8">
-          <h2 className="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2">
-            <ImageIcon size={24} className="text-[#800000]" />
-            شعار الخدمة
-          </h2>
+      {activeTab === 'identity' && (
+        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} className="bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden">
+          <div className="p-8">
+            <h2 className="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2">
+              <ImageIcon size={24} className="text-[#800000]" />
+              شعار الخدمة
+            </h2>
 
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="w-48 h-48 bg-stone-50 rounded-full border-2 border-dashed border-stone-200 flex items-center justify-center overflow-hidden relative group">
@@ -550,8 +683,166 @@ export const SettingsManager = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
+          </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'security' && (
+        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} className="space-y-8">
+          <div className="bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden">
+            <div className="p-8">
+              <h2 className="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2 border-b pb-4">
+                <Lock size={24} className="text-[#800000]" />
+                كلمة مرور الترقية وبدء عام جديد
+              </h2>
+              <div className="flex gap-4 items-center">
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-wide">كلمة السر</label>
+                  <input type="text" value={masterPasswordInput} onChange={(e) => setMasterPasswordInput(e.target.value)} className="w-full input-clean mt-1 bg-stone-50" placeholder="أدخل كلمة المرور المشفرة" />
+                </div>
+                <button onClick={handleUpdateMasterPassword} className="btn-primary mt-5 px-8">حفظ</button>
+              </div>
+              <p className="text-xs text-stone-400 mt-3 flex items-center gap-1">
+                <ShieldAlert size={14} /> سيتم طلب كلمة المرور هذه عند ترقية الطلاب لعام جديد.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-xl border border-stone-100 overflow-hidden">
+            <div className="p-8 flex items-center justify-between border-b border-stone-100 bg-stone-50/50">
+              <h2 className="text-xl font-bold text-stone-800 flex items-center gap-2">
+                <Users size={24} className="text-[#800000]" />
+                إدارة المستخدمين والصلاحيات
+              </h2>
+              <button onClick={() => setIsAddingUser(true)} className="btn-primary flex items-center gap-2 text-sm">
+                <Plus size={16} /> إضافة مستخدم
+              </button>
+            </div>
+            <div className="p-8">
+              {isAddingUser && (
+                <div className="mb-6 p-6 bg-stone-50 rounded-2xl border border-stone-200">
+                  <h3 className="font-bold text-[#800000] mb-4">تفاصيل المستخدم الجديد</h3>
+                  <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-stone-500 uppercase">اسم المستخدم الفريد (الدخول)</label>
+                      <input type="text" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} required className="w-full input-clean mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-stone-500 uppercase">كلمة المرور</label>
+                      <input type="text" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} required className="w-full input-clean mt-1" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-stone-500 uppercase">الاسم المعروض</label>
+                      <input type="text" value={newUser.displayName} onChange={e => setNewUser({...newUser, displayName: e.target.value})} required className="w-full input-clean mt-1" placeholder="مثال: المنسق" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-stone-500 uppercase">الصلاحية</label>
+                      <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})} required className="w-full input-clean mt-1">
+                        <option value="admin">منسق / Admin</option>
+                        <option value="attendance">خادم الحضور</option>
+                        <option value="tayo">خادم الطايو</option>
+                        <option value="practical">خادم العملي</option>
+                        <option value="servant">خادم</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-2 flex gap-2 justify-end mt-2">
+                      <button type="button" onClick={() => setIsAddingUser(false)} className="px-6 py-2 rounded-xl text-stone-500 hover:bg-stone-200 font-bold transition-all">إلغاء</button>
+                      <button type="submit" className="btn-primary">حفظ المستخدم</button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(securitySettings?.accounts || []).map(account => (
+                  <div key={account.id} className="relative flex flex-col p-4 border border-stone-200 rounded-2xl hover:border-maroon/30 transition-all group overflow-hidden">
+                    {editingUserId === account.id ? (
+                      <form onSubmit={handleSaveEditUser} className="space-y-3 z-10 w-full relative bg-white">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-stone-500 uppercase">اسم المستخدم</label>
+                            <input type="text" value={editingUser.username} onChange={e => setEditingUser({...editingUser, username: e.target.value})} required className="w-full input-clean mt-1 font-mono text-sm py-1.5 px-2" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-stone-500 uppercase">كلمة المرور</label>
+                            <input type="text" value={editingUser.password} onChange={e => setEditingUser({...editingUser, password: e.target.value})} required className="w-full input-clean mt-1 font-mono text-sm py-1.5 px-2" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-stone-500 uppercase">الاسم المعروض</label>
+                            <input type="text" value={editingUser.displayName} onChange={e => setEditingUser({...editingUser, displayName: e.target.value})} required className="w-full input-clean mt-1 text-sm py-1.5 px-2" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-stone-500 uppercase">الصلاحية</label>
+                            <select value={editingUser.role} onChange={e => setEditingUser({...editingUser, role: e.target.value as any})} required className="w-full input-clean mt-1 text-sm py-1.5 px-2">
+                              <option value="admin">منسق / Admin</option>
+                              <option value="attendance">خادم الحضور</option>
+                              <option value="tayo">خادم الطايو</option>
+                              <option value="practical">خادم العملي</option>
+                              <option value="servant">خادم</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end pt-2 border-t border-stone-100">
+                          <button type="button" onClick={() => setEditingUserId(null)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-stone-500 hover:bg-stone-100">إلغاء</button>
+                          <button type="submit" className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#800000] text-white hover:bg-red-800 shadow-sm">حفظ</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-full bg-gold/20 text-[#800000] flex items-center justify-center font-bold">
+                              {account.displayName[0]}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-[#333333]">{account.displayName}</h4>
+                              <span className="text-[10px] bg-stone-100 text-stone-500 px-2 py-0.5 rounded-full inline-block mt-0.5 uppercase tracking-wide">
+                                {account.role}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => handleStartEditUser(account)}
+                              className="p-1.5 text-stone-400 hover:text-[#800000] hover:bg-[#800000]/10 rounded-full transition-all drop-shadow-sm"
+                              title="تعديل المستخدم"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteUser(account.id)}
+                              className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all drop-shadow-sm"
+                              title="حذف المستخدم"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-4 space-y-2 text-sm bg-stone-50 p-3 rounded-xl border border-stone-100">
+                          <div className="flex items-center gap-2 text-stone-600">
+                            <Users size={14} className="text-stone-400" />
+                            <span className="font-mono">{account.username}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-stone-600">
+                            <Key size={14} className="text-stone-400" />
+                            <span className="font-mono truncate">{account.password || '******'}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {(!securitySettings?.accounts || securitySettings.accounts.length === 0) && (
+                   <div className="col-span-2 text-center py-12 text-stone-400 bg-stone-50 rounded-2xl border-2 border-dashed border-stone-200">
+                     لا يوجد مستخدمين مسجلين
+                   </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <AnimatePresence>
         {isEditorOpen && selectedImage && (

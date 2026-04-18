@@ -4985,26 +4985,61 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mb-8 md:mb-12">
-                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-[#800000]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-8 md:mb-12">
+                <motion.div 
+                  whileHover={{ y: -5 }} 
+                  onClick={() => setActiveTab('students')}
+                  className="interactive-card card-clean p-8 border-t-4 border-t-[#800000] cursor-pointer"
+                >
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Users size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي الطلاب</p>
                   <h3 className="text-4xl font-bold text-stone-900">{globalStats.students}</h3>
                 </motion.div>
                 
-                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-gold">
+                <motion.div 
+                  whileHover={{ y: -5 }} 
+                  onClick={() => setActiveTab('attendance')}
+                  className="interactive-card card-clean p-8 border-t-4 border-t-gold cursor-pointer"
+                >
                   <div className="w-12 h-12 bg-gold text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Calendar size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">الحضور اليوم</p>
                   <h3 className="text-4xl font-bold text-stone-900">{globalStats.attendanceToday}</h3>
                 </motion.div>
                 
-                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-[#800000]">
+                <motion.div 
+                  whileHover={{ y: -5 }} 
+                  onClick={() => setActiveTab('tayo')}
+                  className="interactive-card card-clean p-8 border-t-4 border-t-[#800000] cursor-pointer sm:col-span-2 lg:col-span-1"
+                >
                   <div className="w-12 h-12 bg-[#800000] text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><GraduationCap size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الطايو</p>
                   <h3 className="text-4xl font-bold text-stone-900 mb-4">{globalStats.totalTayo}</h3>
+                  
+                  <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-stone-100">
+                    <div className="text-sm">
+                      <span className="text-stone-400 text-xs block">حضور</span>
+                      <span className="font-bold text-stone-700">{globalStats.tayoBreakdown?.attendance || 0}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-stone-400 text-xs block">تفاعل</span>
+                      <span className="font-bold text-stone-700">{globalStats.tayoBreakdown?.interaction || 0}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-stone-400 text-xs block">سلوك</span>
+                      <span className="font-bold text-stone-700">{globalStats.tayoBreakdown?.behavior || 0}</span>
+                    </div>
+                    <div className="text-sm">
+                      <span className="text-stone-400 text-xs block">عملي</span>
+                      <span className="font-bold text-stone-700">{globalStats.tayoBreakdown?.practical || 0}</span>
+                    </div>
+                  </div>
                 </motion.div>
 
-                <motion.div whileHover={{ y: -5 }} className="interactive-card card-clean p-8 border-t-4 border-t-emerald-600">
+                <motion.div 
+                  whileHover={{ y: -5 }} 
+                  onClick={() => setActiveTab('practical')}
+                  className="interactive-card card-clean p-8 border-t-4 border-t-emerald-600 cursor-pointer sm:col-span-2 lg:col-span-1"
+                >
                   <div className="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-6 shadow-md"><Star size={24} /></div>
                   <p className="text-stone-400 font-bold mb-1">إجمالي نقاط الخدمة</p>
                   <h3 className="text-4xl font-bold text-stone-900">{globalStats.totalService}</h3>
@@ -5335,6 +5370,7 @@ const AppContent = () => {
   const { user, loading, canAccess, logout } = useAuth();
   const { logoUrl, logoLoading, setActiveIcon } = useBranding();
   const { addToast } = useToast();
+  const { selectedGrade } = useGrade();
   const [activeTab, setActiveTab] = useState('hub');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -5409,52 +5445,20 @@ const AppContent = () => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
+  const [rawStudentsDocs, setRawStudentsDocs] = useState<any[]>([]);
+  const [rawAttendanceDocs, setRawAttendanceDocs] = useState<any[]>([]);
+
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     
-    let studentsDocs: any[] = [];
-    let attendanceDocs: any[] = [];
-
-    const updateStats = () => {
-      const studentIds = studentsDocs.map(doc => doc.id);
-      const filteredAttendance = attendanceDocs.filter(doc => studentIds.includes(doc.data().studentId));
-      
-      let totalTayo = 0;
-      let totalService = 0;
-      let breakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
-      
-      studentsDocs.forEach(doc => {
-        const data = doc.data();
-        const t = (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
-        totalTayo += t;
-        totalService += (data.practicalPoints || 0);
-        
-        breakdown.attendance += (data.attendancePoints || 0);
-        breakdown.behavior += (data.behaviorPoints || 0);
-        breakdown.interaction += (data.interactionPoints || 0);
-        breakdown.practical += (data.practicalPoints || 0);
-      });
-      
-      setStats({ 
-        students: studentsDocs.length, 
-        attendanceToday: filteredAttendance.length, 
-        tayoBreakdown: breakdown,
-        totalTayo: totalTayo,
-        totalService: totalService
-      });
-      setStatsLoading(false);
-    };
-
     const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snap) => {
-      studentsDocs = snap.docs;
-      updateStats();
+      setRawStudentsDocs(snap.docs);
     }, (error) => {
       console.error("Global students listener error:", error);
     });
 
     const unsubscribeAttendance = onSnapshot(query(collection(db, 'attendance'), where('date', '==', today), where('status', '==', 'present')), (snap) => {
-      attendanceDocs = snap.docs;
-      updateStats();
+      setRawAttendanceDocs(snap.docs);
     }, (error) => {
       console.error("Global attendance listener error:", error);
     });
@@ -5464,6 +5468,41 @@ const AppContent = () => {
       unsubscribeAttendance();
     };
   }, []);
+
+  useEffect(() => {
+    let filteredStudents = rawStudentsDocs;
+    if (selectedGrade !== 'all') {
+      filteredStudents = filteredStudents.filter(doc => doc.data().gradeLevel === selectedGrade);
+    }
+    
+    const studentIds = filteredStudents.map(doc => doc.id);
+    const filteredAttendance = rawAttendanceDocs.filter(doc => studentIds.includes(doc.data().studentId));
+    
+    let totalTayo = 0;
+    let totalService = 0;
+    let breakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
+    
+    filteredStudents.forEach(doc => {
+      const data = doc.data();
+      const t = (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
+      totalTayo += t;
+      totalService += (data.practicalPoints || 0);
+      
+      breakdown.attendance += (data.attendancePoints || 0);
+      breakdown.behavior += (data.behaviorPoints || 0);
+      breakdown.interaction += (data.interactionPoints || 0);
+      breakdown.practical += (data.practicalPoints || 0);
+    });
+    
+    setStats({ 
+      students: filteredStudents.length, 
+      attendanceToday: filteredAttendance.length, 
+      tayoBreakdown: breakdown,
+      totalTayo: totalTayo,
+      totalService: totalService
+    });
+    setStatsLoading(false);
+  }, [rawStudentsDocs, rawAttendanceDocs, selectedGrade]);
 
   if (loading || statsLoading) return (
     <div className="min-h-screen flex flex-col items-center justify-center">

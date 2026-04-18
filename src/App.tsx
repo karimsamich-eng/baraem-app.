@@ -2553,8 +2553,8 @@ const TayoScoring = () => {
                                   editingGrade.subject === 'سلوك' ? 'behavior' :
                                   editingGrade.subject === 'تفاعل' ? 'interaction' : 'practical';
         await setDoc(analyticsRef, {
-          total_tyo_points: increment(-editingGrade.score),
-          [oldBreakdownField]: increment(-editingGrade.score),
+          total_tyo_points: increment(-1),
+          [oldBreakdownField]: increment(-1),
           updatedAt: new Date().toISOString()
         }, { merge: true });
 
@@ -2597,8 +2597,8 @@ const TayoScoring = () => {
                                newGrade.subject === 'سلوك' ? 'behavior' :
                                newGrade.subject === 'تفاعل' ? 'interaction' : 'practical';
         await setDoc(analyticsRef, {
-          total_tyo_points: increment(newGrade.score),
-          [breakdownField]: increment(newGrade.score),
+          total_tyo_points: increment(1),
+          [breakdownField]: increment(1),
           grade: selectedStudent.gradeLevel,
           updatedAt: new Date().toISOString()
         }, { merge: true });
@@ -2653,8 +2653,8 @@ const TayoScoring = () => {
                                    grade.subject === 'سلوك' ? 'behavior' :
                                    grade.subject === 'تفاعل' ? 'interaction' : 'practical';
             await setDoc(analyticsRef, {
-              total_tyo_points: increment(-grade.score),
-              [breakdownField]: increment(-grade.score),
+              total_tyo_points: increment(-1),
+              [breakdownField]: increment(-1),
               updatedAt: new Date().toISOString()
             }, { merge: true });
           }
@@ -4705,7 +4705,7 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
   const { addToast } = useToast();
   const { confirm } = useConfirm();
 
-  const [masterAction, setMasterAction] = useState<'yearTransition' | 'resetPoints' | null>(null);
+  const [masterAction, setMasterAction] = useState<'yearTransition' | 'resetPoints' | 'undoYearTransition' | null>(null);
   const [masterPasswordInput, setMasterPasswordInput] = useState('');
 
   const executeMasterAction = async (e: React.FormEvent) => {
@@ -4777,6 +4777,62 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
         addToast('فشل بدء العام الجديد', 'error');
       } finally {
         setIsSyncing(false);
+      }
+    } else if (action === 'undoYearTransition') {
+      setIsSyncing(true);
+      try {
+        const studentsSnap = await getDocs(collection(db, 'students'));
+        
+        // 1. Revert Grades
+        for (const studentDoc of studentsSnap.docs) {
+          const data = studentDoc.data();
+          const studentRef = doc(db, 'students', studentDoc.id);
+          
+          let newGrade = data.gradeLevel;
+          if (data.gradeLevel === 'الفرقة الثانية') {
+            newGrade = 'الفرقة الأولى'; // Revert back
+          } else if (data.gradeLevel === 'خريج (دفعات سابقة)') {
+            newGrade = 'الفرقة الثانية'; // Revert back
+          }
+
+          await updateDoc(studentRef, {
+            gradeLevel: newGrade,
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        // 2. We now need to re-sync their points completely based on the grades history!
+        const gradesSnap = await getDocs(collection(db, 'grades'));
+        const pointAccumulator: Record<string, { attendance: number, behavior: number, interaction: number, practical: number }> = {};
+        
+        gradesSnap.forEach(doc => {
+           const g = doc.data();
+           if (!pointAccumulator[g.studentId]) {
+              pointAccumulator[g.studentId] = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
+           }
+           if (g.subject === 'حضور') pointAccumulator[g.studentId].attendance += g.score;
+           else if (g.subject === 'سلوك') pointAccumulator[g.studentId].behavior += g.score;
+           else if (g.subject === 'تفاعل') pointAccumulator[g.studentId].interaction += g.score;
+           else if (g.subject === 'خدمة عملية') pointAccumulator[g.studentId].practical += g.score;
+        });
+
+        for (const studentDoc of studentsSnap.docs) {
+          const stdId = studentDoc.id;
+          const points = pointAccumulator[stdId] || { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
+          await updateDoc(doc(db, 'students', stdId), {
+            attendancePoints: points.attendance,
+            behaviorPoints: points.behavior,
+            interactionPoints: points.interaction,
+            practicalPoints: points.practical
+          });
+        }
+
+        addToast('تم التراجع عن بدء العام الجديد، استعادة المراحل والنقاط! يرجى الضغط على زر مزامنة الآن', 'success');
+      } catch (error) {
+        console.error("Undo year transition failed:", error);
+        addToast('فشل التراجع', 'error');
+      } finally {
+         setIsSyncing(false);
       }
     } else if (action === 'resetPoints') {
       setIsResetting(true);
@@ -4862,11 +4918,11 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
           };
         }
 
-        gradeTotals[grade].total_tyo_points += data.score;
-        if (data.subject === 'حضور') gradeTotals[grade].attendance += data.score;
-        else if (data.subject === 'سلوك') gradeTotals[grade].behavior += data.score;
-        else if (data.subject === 'تفاعل') gradeTotals[grade].interaction += data.score;
-        else if (data.subject === 'خدمة عملية') gradeTotals[grade].practical += data.score;
+        gradeTotals[grade].total_tyo_points += 1;
+        if (data.subject === 'حضور') gradeTotals[grade].attendance += 1;
+        else if (data.subject === 'سلوك') gradeTotals[grade].behavior += 1;
+        else if (data.subject === 'تفاعل') gradeTotals[grade].interaction += 1;
+        else if (data.subject === 'خدمة عملية') gradeTotals[grade].practical += 1;
       });
 
       for (const grade in gradeTotals) {
@@ -4968,14 +5024,24 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
                 {(user?.role === 'coordinator' || user?.role === 'admin') && (
                   <div className="flex items-center gap-2">
                     {selectedGrade === 'all' && (
-                      <button 
-                        onClick={handleYearTransition}
-                        disabled={isSyncing}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#800000]/10 text-[#800000] rounded-xl font-bold hover:bg-[#800000] hover:text-white transition-all shadow-sm disabled:opacity-50"
-                      >
-                        {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Calendar size={16} />}
-                        بدء عام جديد
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={handleYearTransition}
+                          disabled={isSyncing}
+                          className="flex items-center gap-2 px-4 py-2 bg-[#800000]/10 text-[#800000] rounded-xl font-bold hover:bg-[#800000] hover:text-white transition-all shadow-sm disabled:opacity-50"
+                        >
+                          {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Calendar size={16} />}
+                          بدء عام جديد
+                        </button>
+                        <button 
+                          onClick={() => setMasterAction('undoYearTransition')}
+                          disabled={isSyncing}
+                          className="flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-600 rounded-xl font-bold hover:bg-stone-200 transition-all shadow-sm disabled:opacity-50 border border-stone-200"
+                        >
+                          {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldAlert size={16} />}
+                          تراجع (طوارئ)
+                        </button>
+                      </div>
                     )}
                     {selectedGrade !== 'all' && (
                       <button 
@@ -5089,12 +5155,14 @@ export const DashboardNew = ({ setActiveTab, globalStats }: { setActiveTab: (t: 
                 </div>
                 
                 <h3 className="text-xl font-bold text-center text-stone-900 mb-2">
-                  {masterAction === 'yearTransition' ? 'بدء عام جديد (ترقية الطلاب)' : 'تصفير النقاط'}
+                  {masterAction === 'yearTransition' ? 'بدء عام جديد (ترقية الطلاب)' : 
+                   masterAction === 'undoYearTransition' ? 'التراجع عن بدء العام الجديد' : 'تصفير النقاط'}
                 </h3>
                 
                 <p className="text-center text-stone-500 mb-8 text-sm leading-relaxed">
                   {masterAction === 'yearTransition' 
                     ? 'تحذير: سيتم ترفيع طلاب جميع الفرق الدراسية للفرقة التالية، مع تصفير كامل لجميع النقاط. هذه الحركة لا يمكن التراجع عنها.'
+                    : masterAction === 'undoYearTransition' ? 'تحذير: سيتم إعادة جميع الطلاب المنقولين إلى فرقهم السابقة، واسترجاع جميع درجاتهم ونقاطهم من السجل التاريخي والعمليات السابقة. قد يستغرق هذا بعض الوقت.'
                     : `تحذير: سيتم تصفير نقاط (${selectedGrade}) للعام الحالي ونقلها لجداول السجل التاريخي.`
                   }
                 </p>
@@ -5521,6 +5589,7 @@ const AppContent = () => {
 
   const [rawStudentsDocs, setRawStudentsDocs] = useState<any[]>([]);
   const [rawAttendanceDocs, setRawAttendanceDocs] = useState<any[]>([]);
+  const [rawAnalyticsDocs, setRawAnalyticsDocs] = useState<any[]>([]);
 
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -5537,9 +5606,16 @@ const AppContent = () => {
       console.error("Global attendance listener error:", error);
     });
 
+    const unsubscribeAnalytics = onSnapshot(collection(db, 'group_analytics'), (snap) => {
+      setRawAnalyticsDocs(snap.docs);
+    }, (error) => {
+      console.error("Global analytics listener error:", error);
+    });
+
     return () => {
       unsubscribeStudents();
       unsubscribeAttendance();
+      unsubscribeAnalytics();
     };
   }, []);
 
@@ -5556,18 +5632,19 @@ const AppContent = () => {
     let totalService = 0;
     let breakdown = { attendance: 0, behavior: 0, interaction: 0, practical: 0 };
     
-    filteredStudents.forEach(doc => {
-      const data = doc.data();
-      const t = (data.attendancePoints || 0) + (data.behaviorPoints || 0) + (data.interactionPoints || 0) + (data.practicalPoints || 0);
-      totalTayo += t;
-      totalService += (data.practicalPoints || 0);
-      
-      breakdown.attendance += (data.attendancePoints || 0);
-      breakdown.behavior += (data.behaviorPoints || 0);
-      breakdown.interaction += (data.interactionPoints || 0);
-      breakdown.practical += (data.practicalPoints || 0);
+    // Calculate totals based on group_analytics which holds counts, not sums
+    rawAnalyticsDocs.forEach(doc => {
+      if (selectedGrade === 'all' || doc.id === `grade_${selectedGrade}`) {
+        const data = doc.data();
+        totalTayo += data.total_tyo_points || 0;
+        breakdown.attendance += data.attendance || 0;
+        breakdown.behavior += data.behavior || 0;
+        breakdown.interaction += data.interaction || 0;
+        breakdown.practical += data.practical || 0;
+        totalService += data.practical || 0; // Assuming practical is service
+      }
     });
-    
+
     setStats({ 
       students: filteredStudents.length, 
       attendanceToday: filteredAttendance.length, 
@@ -5576,7 +5653,7 @@ const AppContent = () => {
       totalService: totalService
     });
     setStatsLoading(false);
-  }, [rawStudentsDocs, rawAttendanceDocs, selectedGrade]);
+  }, [rawStudentsDocs, rawAttendanceDocs, rawAnalyticsDocs, selectedGrade]);
 
   if (loading || statsLoading) return (
     <div className="min-h-screen flex flex-col items-center justify-center">
